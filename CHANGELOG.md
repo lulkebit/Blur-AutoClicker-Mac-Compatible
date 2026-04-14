@@ -1,3 +1,22 @@
+# v3.3.0 - ..202 (d.m.y)
+## ❇️ New:
+- added Github link icon
+- added Scroll bar for settings page
+## 🔹 Changed:
+- Simple Mode UI
+- Icons for top bar instead of text buttons
+- Resize animation for horizontal resizing
+- Randomization and Duty cycle are now in simple mode. 
+## 🔺 Fix:
+- Fixed double click on top bar maximizing the window.
+- Speed Variation not graying out when off
+## 🔸 Performance Updates:
+
+## 🪦 Removed:
+- Removed Telemetry. Your local data will also be reset but it is what it is
+- Duty Cycle On/Off button
+- Local Key generation for stats (if you want to make your own fake stats, go ahead ig)
+
 # v3.2.0 - 11.04.2026 (d.m.y)
 ## ❇️ New Features:
 - Added an Overlay for the edge / corner stop features. This was a major pain and i am not done with it yet. the current implementation is more of a test.

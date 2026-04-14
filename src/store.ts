@@ -4,7 +4,7 @@ const store = new LazyStore("settings.json");
 import { getVersion } from '@tauri-apps/api/app';
 const version = await getVersion();
 
-export type SavedPanel = "simple" | "advanced" | "macro";
+export type SavedPanel = "simple" | "advanced";
 export type ExplanationMode = "off" | "text";
 
 export interface Settings {
@@ -38,7 +38,6 @@ export interface Settings {
   positionEnabled: boolean;
   positionX: number;
   positionY: number;
-  telemetryEnabled: boolean;
   disableScreenshots: boolean;
   advancedSettingsEnabled: boolean;
   explanationMode: ExplanationMode;
@@ -94,7 +93,6 @@ export const DEFAULT_SETTINGS: Settings = {
   positionEnabled: false,
   positionX: 0,
   positionY: 0,
-  telemetryEnabled: false,
   disableScreenshots: false,
   advancedSettingsEnabled: true,
   explanationMode: "text",
@@ -104,7 +102,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
-  return value === "advanced" || value === "macro" ? value : "simple";
+  return value === "advanced" ? value : "simple";
 }
 
 function sanitizeExplanationMode(input: Partial<Settings> | null | undefined): ExplanationMode {
@@ -134,12 +132,14 @@ function clampNumber(value: unknown, fallback: number, min?: number, max?: numbe
 }
 
 function sanitizeSettings(input?: Partial<Settings> | null): Settings {
-  const saved = (input ?? {}) as Partial<Settings> & {
+  const raw = (input ?? {}) as Partial<Settings> & {
     dutyCycleEnabled?: unknown;
     speedVariationEnabled?: unknown;
     speedVariation?: unknown;
     speedVariationMax?: unknown;
+    telemetryEnabled?: unknown;
   };
+  const { telemetryEnabled: _legacyTelemetryEnabled, ...saved } = raw;
   const legacySpeedVariation = clampNumber(
     saved.speedVariationMax,
     DEFAULT_SETTINGS.speedVariation,
@@ -190,14 +190,4 @@ export async function saveSettings(settings: Settings): Promise<void> {
 export async function clearSavedSettings(): Promise<void> {
   await store.set("settings", DEFAULT_SETTINGS);
   await store.save();
-}
-
-export async function hasTelemetryConsent(): Promise<boolean> {
-    const consented = await store.get<boolean>("telemetry_consented");
-    return consented === true;
-}
-
-export async function setTelemetryConsent(_accepted: boolean): Promise<void> {
-    await store.set("telemetry_consented", true);
-    await store.save();
 }

@@ -8,7 +8,6 @@ interface CumulativeStats {
   totalClicks: number;
   totalTimeSecs: number;
   totalSessions: number;
-  sessionsSent: number;
   avgCpu: number;
 }
 
@@ -74,10 +73,10 @@ export default function SettingsPanel({
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         <div className="social-links">
-          <span className="settings-label">Support</span>
+          <span className="settings-label">Support Me</span>
           <div className="social-icons">
             <a
-              className="social-icon"
+              className="social-icon social-icon--youtube"
               href="#"
               title="YouTube"
               onClick={(e) => {
@@ -95,7 +94,7 @@ export default function SettingsPanel({
               </svg>
             </a>
             <a
-              className="social-icon"
+              className="social-icon social-icon--twitch"
               href="#"
               title="Twitch"
               onClick={(e) => {
@@ -110,6 +109,24 @@ export default function SettingsPanel({
                 height="18"
               >
                 <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+              </svg>
+            </a>
+            <a
+              className="social-icon social-icon--github"
+              href="#"
+              title="GitHub"
+              onClick={(e) => {
+                e.preventDefault();
+                open("https://github.com/Blur009/Blur-AutoClicker");
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                width="18"
+                height="18"
+              >
+                <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
               </svg>
             </a>
             <a
@@ -151,7 +168,7 @@ export default function SettingsPanel({
           </div>
         </div>
 
-        <div className="settings-divider" />
+        {/* <div className="settings-divider" /> */}
         <div className="settings-row">
           <span className="settings-label">Version</span>
           <span className="settings-value">v{appInfo.version}</span>
@@ -165,8 +182,7 @@ export default function SettingsPanel({
           <div className="settings-label-group">
             <span className="settings-label">Your Usage Data</span>
             <span className="settings-sublabel">
-              Your personal clicker stats, tracked locally, not public if
-              Telemetry is Disabled.
+              Your personal clicker stats, tracked locally.
             </span>
           </div>
           {/* <button
@@ -252,27 +268,6 @@ export default function SettingsPanel({
                 key={o}
                 className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === o ? "active" : ""}`}
                 onClick={() => update({ showStopReason: o === "On" })}
-              >
-                {o}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">Share Usage data</span>
-            <span className="settings-sublabel">
-              Share Anonymous analytics to improve the app. No personal
-              information will be collected.
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
-              <button
-                key={o}
-                className={`settings-seg-btn ${(settings.telemetryEnabled ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ telemetryEnabled: o === "On" })}
               >
                 {o}
               </button>

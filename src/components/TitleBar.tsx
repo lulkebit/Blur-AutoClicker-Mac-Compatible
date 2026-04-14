@@ -14,6 +14,65 @@ interface Props {
   onRequestClose: () => Promise<void>;
 }
 
+type NavTab = Exclude<Tab, "settings">;
+
+type TabIconProps = {
+  active: boolean;
+};
+
+type TabItem = {
+  value: NavTab;
+  label: string;
+  color: string;
+  icon: (props: TabIconProps) => React.ReactNode;
+};
+
+const TAB_ITEMS: readonly TabItem[] = [
+  {
+    value: "simple",
+    label: "Simple",
+    color: "var(--accent-green)",
+    icon: ({ active }) => (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={active ? "2.2" : "2"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="7" y="3" width="10" height="18" rx="5" />
+        <path d="M12 7v4" />
+      </svg>
+    ),
+  },
+  {
+    value: "advanced",
+    label: "Advanced",
+    color: "var(--accent-yellow)",
+    icon: ({ active }) => (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={active ? "2.2" : "2"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
+        <path d="m3 12.5 9 4.5 9-4.5" />
+        <path d="m3 17.5 9 4.5 9-4.5" />
+      </svg>
+    ),
+  },
+] as const;
+
 export default function TitleBar({
   tab,
   setTab,
@@ -107,7 +166,7 @@ export default function TitleBar({
       data-running={running}
     >
       {/* Leftmost settings icon + mode tabs */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
           className="settings-button"
           data-active={tab === "settings"}
@@ -129,25 +188,20 @@ export default function TitleBar({
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <TabPill
-            label={tab === "simple" ? "Simple" : "S"}
-            active={tab === "simple"}
-            onClick={() => setTab("simple")}
-            color="var(--accent-green)"
-          />
-          <TabPill
-            label={tab === "advanced" ? "Advanced" : "A"}
-            active={tab === "advanced"}
-            onClick={() => setTab("advanced")}
-            color="var(--accent-yellow)"
-          />
-          <TabPill
-            label={tab === "macro" ? "Macro" : "M"}
-            active={tab === "macro"}
-            onClick={() => setTab("macro")}
-            color="var(--accent-red)"
-          />
+        <div className="tab-icon-group">
+          {TAB_ITEMS.map((item) => {
+            const isActive = tab === item.value;
+            return (
+              <TabIconButton
+                key={item.value}
+                label={item.label}
+                active={isActive}
+                onClick={() => setTab(item.value)}
+                color={item.color}
+                icon={item.icon({ active: isActive })}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -174,30 +228,29 @@ export default function TitleBar({
         <WindowBtn
           onClick={toggleAlwaysOnTop}
           active={isAlwaysOnTop}
+          title={isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"}
           label={
             <svg
-              width="10"
-              height="10"
+              width="16"
+              height="16"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              style={{
-                transform: isAlwaysOnTop ? "rotate(180deg)" : "none",
-                transition: "transform 0.2s",
-              }}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path d="M21 10V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2" />
-              <path d="M7 10v4a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-4" />
-              <path d="M12 16v5" />
+              <path d="M8 4h8l-1.4 5.2h-5.2L8 4z" />
+              <path d="M6 9.2h12" />
+              <path d="M12 9.2v10.8" />
             </svg>
           }
         />
         <WindowBtn
           onClick={handleMinimize}
           label={
-            <svg width="10" height="1" viewBox="0 0 10 1" fill="none">
-              <rect width="10" height="1" fill="currentColor" />
+            <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+              <rect width="10" height="2" fill="currentColor" />
             </svg>
           }
         />
@@ -209,7 +262,7 @@ export default function TitleBar({
               <path
                 d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
                 stroke="currentColor"
-                strokeWidth="1"
+                strokeWidth="2"
               />
             </svg>
           }
@@ -226,25 +279,26 @@ export default function TitleBar({
   );
 }
 
-function TabPill({
+function TabIconButton({
+  icon,
   label,
   active,
   onClick,
   color,
 }: {
+  icon: React.ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
   color: string;
 }) {
-  const firstLetter = label.charAt(0);
-  const restOfWord = label.slice(1);
-
   return (
     <button
       onMouseDown={(e) => e.stopPropagation()}
       onClick={onClick}
-      className={`tab-pill ${active ? "active" : ""}`}
+      className={`tab-icon-btn ${active ? "active" : ""}`}
+      aria-label={label}
+      title={label}
       style={
         {
           "--active-color": color,
@@ -252,8 +306,7 @@ function TabPill({
         } as React.CSSProperties
       }
     >
-      <span className="pill-letter">{firstLetter}</span>
-      <span className="pill-expansion">{restOfWord}</span>
+      {icon}
     </button>
   );
 }
@@ -263,16 +316,20 @@ function WindowBtn({
   label,
   danger,
   active,
+  title,
 }: {
   onClick: () => void;
   label: React.ReactNode;
   danger?: boolean;
   active?: boolean;
+  title?: string;
 }) {
   return (
     <button
       onMouseDown={(e) => e.stopPropagation()}
       onClick={onClick}
+      title={title}
+      aria-label={title}
       className={`window-btn ${danger ? "window-btn-danger" : ""} ${active ? "active" : ""}`}
     >
       {label}

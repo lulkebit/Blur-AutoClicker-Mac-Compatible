@@ -78,7 +78,6 @@ fn calibrate_cycle_freq() -> f64 {
 }
 
 // -- Tauri-aware commands --
-
 pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
@@ -106,7 +105,6 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
     }
 
     let settings = state.settings.lock().unwrap().clone();
-    let telemetry_enabled = settings.telemetry_enabled;
     let config = build_config(&settings)?;
     state.running.store(true, Ordering::SeqCst);
     let running = state.running.clone();
@@ -118,26 +116,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
 
         print_run_stats(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
 
-        record_run(
-            outcome.click_count,
-            outcome.elapsed_secs,
-            outcome.avg_cpu,
-            telemetry_enabled,
-        );
-
-        if telemetry_enabled {
-            let unsent = crate::engine::stats::get_unsent_runs();
-            let ids: Vec<u64> = unsent.iter().map(|r| r.id).collect();
-
-            match tauri::async_runtime::block_on(crate::telemetry::send_stats_rows(&unsent)) {
-                Ok(_) => {
-                    let _ = crate::engine::stats::mark_runs_sent(&ids);
-                }
-                Err(e) => {
-                    log::error!("[telemetry] {}", e);
-                }
-            }
-        }
+        record_run(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
 
         let state = app_handle.state::<ClickerState>();
         *state.stop_reason.lock().unwrap() = Some(outcome.stop_reason.clone());
@@ -277,7 +256,7 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
     CLICK_COUNT.store(0, Ordering::SeqCst);
 
     let mut current = 0u32;
-    unsafe { NtSetTimerResolution(15000, 1, &mut current) };
+    unsafe { NtSetTimerResolution(10000, 1, &mut current) };
 
     let cycle_freq = calibrate_cycle_freq();
     let cpu_cycles_start = thread_cycles();
@@ -400,7 +379,7 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
     }
 
     running.store(false, Ordering::SeqCst);
-    unsafe { NtSetTimerResolution(15000, 0, &mut current) };
+    unsafe { NtSetTimerResolution(10000, 0, &mut current) };
 
     let elapsed_secs = start_time.elapsed().as_secs_f64();
     let cpu_cycles_end = thread_cycles();

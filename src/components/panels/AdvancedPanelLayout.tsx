@@ -187,7 +187,6 @@ export default function AdvancedPanelLayout({
     }
   }, [settings.clickSpeed, settings.clickInterval]);
 
-
   const showDesc = (text: string) =>
     showExplanations ? <p className="adv-desc">{text}</p> : null;
 
@@ -292,10 +291,6 @@ export default function AdvancedPanelLayout({
                       <span className="adv-unit">%</span>
                     </div>
                   </div>
-                  <ToggleBtn
-                    value={settings.dutyCycleEnabled}
-                    onChange={(v) => update({ dutyCycleEnabled: v })}
-                  />
                 </div>
               </div>
               <CardDivider />
@@ -308,25 +303,30 @@ export default function AdvancedPanelLayout({
               <div className="adv-card-header">
                 <span className="adv-card-title">Speed Variation</span>
                 <div className="adv-row" style={{ gap: 8 }}>
-                  <div className="adv-numbox-sm">
-                    <NumInput
-                      value={settings.speedVariation}
-                      onChange={(v) => update({ speedVariation: v })}
-                      min={0}
-                      max={200}
-                    />
-                    <span className="adv-unit">%</span>
-                  </div>
+                  <Disableable enabled={settings.speedVariationEnabled}>
+                    <div className="adv-numbox-sm">
+                      <NumInput
+                        value={settings.speedVariation}
+                        onChange={(v) => update({ speedVariation: v })}
+                        min={0}
+                        max={200}
+                      />
+                      <span className="adv-unit">%</span>
+                    </div>
+                  </Disableable>
                   <ToggleBtn
                     value={settings.speedVariationEnabled}
                     onChange={(v) => update({ speedVariationEnabled: v })}
                   />
                 </div>
               </div>
-              <CardDivider />
-              {showDesc(
-                "Randomizes click timing around your configured speed by up to this percentage.",
-              )}
+              <Disableable enabled={settings.speedVariationEnabled}>
+                <CardDivider />
+
+                {showDesc(
+                  "Randomizes click timing around your configured speed by up to this percentage.",
+                )}
+              </Disableable>
             </div>
 
             <div className="sectioncontainer">

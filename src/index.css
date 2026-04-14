@@ -6,13 +6,13 @@
 }
 
 :root {
-  --bg-base:       hsl(0, 0%, 7%);
-  --bg-surface:    hsl(0, 0%, 9%);
+  --bg-base:       rgb(18, 18, 18);
+  --bg-surface:    hsl(0, 0%, 10%);
   --bg-elevated:   hsl(0, 0%, 15%);
   --bg-input:      hsl(0, 0%, 23%);
   --bg-input-off:  hsl(0, 0%, 20%);
 
-  --border:        hsl(0, 0%, 25%);
+  --border:        hsl(90, 0%, 25%);
   --border-focus:  hsl(0, 0%, 30%);
   --border-subtle: hsl(0, 0%, 20%);
 
@@ -37,7 +37,6 @@
 }
 
 body {
-  background: var(--bg-base);
   color: var(--text-primary);
   font-family: 'DMSans', sans-serif;
   font-size: 16px;
@@ -46,18 +45,21 @@ body {
 }
 
 .app-root {
+  border: 1px var(--border-subtle) solid;
+  background: var(--bg-base);
   width: 100vw;
   height: 100vh;
-  background: var(--bg-base);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--radius-md);
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .panel-area {
   flex: 1;
-  padding: 20px 20px 0px 20px;
+  padding: 20px 20px 20px 20px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

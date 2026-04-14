@@ -1,31 +1,22 @@
 mod settings;
 use settings::ClickerSettings;
 mod app_state;
-use crate::app_state::ClickerState;
-use crate::app_state::ClickerStatusPayload;
 mod engine;
 mod hotkeys;
 mod overlay;
 mod permissions;
-mod telemetry;
 mod ui_commands;
 mod updates;
+
+use crate::app_state::ClickerState;
+use crate::app_state::ClickerStatusPayload;
 use crate::engine::worker::emit_status;
 use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::start_hotkey_listener;
-use crate::telemetry::{send_settings_telemetry, TelemetryData};
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 const STATUS_EVENT: &str = "clicker-status";
-
-fn migrate_old_config() {
-    let old_dir = dirs::data_dir().unwrap_or_default().join("blur009");
-
-    if old_dir.exists() {
-        let _ = std::fs::remove_dir_all(&old_dir);
-    }
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -53,8 +44,6 @@ pub fn run() {
                         .build(),
                 );
             }
-
-            migrate_old_config(); // TODO: Remove In 3 months from now (currently is 04/04/2026) (also remove the function pls lol)
 
             let auto_hide_handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -116,7 +105,7 @@ pub fn run() {
             ui_commands::get_stats,
             ui_commands::reset_stats,
             updates::update_checker::check_for_updates,
-            overlay::hide_overlay
+            overlay::hide_overlay,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -130,19 +119,6 @@ pub fn run() {
                 if label == "main" {
                     crate::overlay::OVERLAY_THREAD_RUNNING
                         .store(false, std::sync::atomic::Ordering::SeqCst);
-                    let state = app_handle.state::<ClickerState>();
-                    let settings = state.settings.lock().unwrap().clone();
-                    if settings.telemetry_enabled {
-                        let data = TelemetryData::from_settings(
-                            &settings,
-                            env!("CARGO_PKG_VERSION").to_string(),
-                        );
-                        tauri::async_runtime::block_on(async {
-                            if let Err(e) = send_settings_telemetry(data).await {
-                                log::error!("[Telemetry] App close send failed: {}", e);
-                            }
-                        });
-                    }
                     std::process::exit(0);
                 }
             }
@@ -154,19 +130,6 @@ pub fn run() {
                 }
             }
             if let tauri::RunEvent::Exit = event {
-                let state = app_handle.state::<ClickerState>();
-                let settings = state.settings.lock().unwrap().clone();
-                if settings.telemetry_enabled {
-                    let data = TelemetryData::from_settings(
-                        &settings,
-                        env!("CARGO_PKG_VERSION").to_string(),
-                    );
-                    tauri::async_runtime::block_on(async {
-                        if let Err(e) = send_settings_telemetry(data).await {
-                            log::error!("[Telemetry] App close send failed: {}", e);
-                        }
-                    });
-                }
                 std::process::exit(0);
             }
         });

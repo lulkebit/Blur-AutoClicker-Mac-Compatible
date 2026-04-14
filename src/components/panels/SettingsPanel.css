@@ -7,8 +7,20 @@
 }
 
 .settings-panel::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
 }
+
+
+.settings-panel::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 4px;
+}
+.settings-panel::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
 .settings-row {
   display: flex;
   align-items: flex-start;
@@ -125,7 +137,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 20vb;
+  height: 10vb;
   background: linear-gradient(to bottom, transparent, var(--bg-base));
   pointer-events: none;
 }
@@ -171,6 +183,24 @@
   color: var(--text-primary);
   background: var(--bg-elevated);
   border-color: var(--border-default);
+}
+
+.social-icon--youtube:hover {
+  color: #ff0033;
+  border-color: rgba(255, 0, 51, 0.45);
+  background: rgba(255, 0, 51, 0.08);
+}
+
+.social-icon--twitch:hover {
+  color: #9146ff;
+  border-color: rgba(145, 70, 255, 0.45);
+  background: rgba(145, 70, 255, 0.08);
+}
+
+.social-icon--github:hover {
+  color: #f0f6fc;
+  border-color: rgba(240, 246, 252, 0.35);
+  background: rgba(240, 246, 252, 0.08);
 }
 
 .social-icon--kofi:hover {

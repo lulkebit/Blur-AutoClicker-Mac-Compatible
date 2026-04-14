@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
+use tauri::Manager;
 
 use tauri::AppHandle;
-use tauri::Manager;
 
 use crate::app_state::AppInfoPayload;
 use crate::app_state::PositionPayload;

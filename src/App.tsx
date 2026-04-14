@@ -6,15 +6,12 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(() => import("./components/panels/AdvancedPanel"));
 const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
-const MacroPanel = lazy(() => import("./components/panels/MacroPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
 const AdvancedPanelCompact = lazy(
   () => import("./components/panels/AdvancedPanelCompact"),
 );
-const TelemetryConsent = lazy(() => import("./components/TelemetryConsent"));
 
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
-import { hasTelemetryConsent, setTelemetryConsent } from "./store";
 import {
   DEFAULT_SETTINGS,
   type AppInfo,
@@ -26,7 +23,7 @@ import {
 } from "./store";
 import UpdateBanner from "./components/Updatebanner";
 
-export type Tab = "simple" | "advanced" | "macro" | "settings";
+export type Tab = "simple" | "advanced" | "settings";
 
 function getPanelSize(
   tab: Tab,
@@ -37,11 +34,10 @@ function getPanelSize(
   const extra =
     (hasUpdate ? 30 : 0) + (hasAccessibilityBanner ? 96 : 0);
   if (tab === "settings") return { width: 500, height: 600 + extra };
-  if (tab === "simple") return { width: 500, height: 150 + extra };
-  if (tab === "macro") return { width: 500, height: 150 + extra };
+  if (tab === "simple") return { width: 550, height: 175 + extra };
   return settings.explanationMode === "off"
-    ? { width: 600, height: 520 + extra }
-    : { width: 800, height: 600 + extra };
+    ? { width: 600, height: 600 + extra }
+    : { width: 800, height: 650 + extra };
 }
 
 const DEFAULT_STATUS: ClickerStatus = {
@@ -52,7 +48,7 @@ const DEFAULT_STATUS: ClickerStatus = {
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
-  version: "0.1.0",
+  version: "3.2.0",
   updateStatus: "Update checks are disabled in development",
   screenshotProtectionSupported: false,
   platform: "unknown",
@@ -85,7 +81,6 @@ export default function App() {
   const hotkeyTimer = useRef<number | null>(null);
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const launchWindowPlacementDone = useRef(false);
-  const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
 
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
@@ -137,9 +132,6 @@ export default function App() {
     ])
       .then(async ([loadedSettings, loadedAppInfo, loadedStatus]) => {
         if (!mounted) return;
-
-        const consented = await hasTelemetryConsent();
-        setConsentGiven(consented);
 
         const canonicalHotkey = await canonicalizeHotkeyForBackend(
           loadedSettings.hotkey,
@@ -247,30 +239,14 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!status.running) return;
-
-    const interval = window.setInterval(() => {
-      invoke<ClickerStatus>("get_status")
-        .then(setStatus)
-        .catch((err) => {
-          console.error("Failed to refresh status:", err);
-        });
-    }, 200);
-
-    return () => window.clearInterval(interval);
-  }, [status.running]);
-
-  // -- Resize window for consent dialog --
-  useEffect(() => {
-    if (consentGiven !== false || !settingsLoaded) return;
-    getCurrentWindow()
-      .setSize(new LogicalSize(420, 520))
-      .then(() => getCurrentWindow().center())
-      .catch((err) => console.error("Failed to size window for consent:", err));
-  }, [consentGiven, settingsLoaded]);
+  const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (resizeTimeout.current) {
+      clearTimeout(resizeTimeout.current);
+      resizeTimeout.current = null;
+    }
+
     const appWindow = getCurrentWindow();
     const { width, height } = getPanelSize(
       tab,
@@ -278,30 +254,55 @@ export default function App() {
       !!updateInfo,
       needsAccessibilityBanner,
     );
+    const root = document.querySelector(".app-root") as HTMLElement;
 
     void (async () => {
       try {
-        if (consentGiven === false) return;
+        if (!launchWindowPlacementDone.current) {
+          await appWindow.setSize(new LogicalSize(width, height));
+          root.style.width = `${width}px`;
+          root.style.height = `${height}px`;
+          await wait(30);
+          await applyStartupWindowPlacement();
+          launchWindowPlacementDone.current = true;
+          return;
+        }
 
-        await appWindow.setSize(new LogicalSize(width, height));
+        const currentSize = await appWindow.innerSize();
+        const scale = await appWindow.scaleFactor();
+        const currentH = currentSize.height / scale;
+        const currentW = currentSize.width / scale;
 
-        if (!settingsLoaded || launchWindowPlacementDone.current) return;
-        await wait(30);
-        await applyStartupWindowPlacement();
+        if (width < currentW || height < currentH) {
+          const snapW = width >= currentW ? width : currentW;
+          const snapH = height >= currentH ? height : currentH;
 
-        launchWindowPlacementDone.current = true;
+          if (snapW !== currentW || snapH !== currentH) {
+            await appWindow.setSize(new LogicalSize(snapW, snapH));
+          }
+
+          root.style.width = `${width}px`;
+          root.style.height = `${height}px`;
+
+          resizeTimeout.current = setTimeout(async () => {
+            await appWindow.setSize(new LogicalSize(width, height));
+            resizeTimeout.current = null;
+          }, 320);
+        } else {
+          await appWindow.setSize(new LogicalSize(width, height));
+          root.style.width = `${currentW}px`;
+          root.style.height = `${currentH}px`;
+
+          root.offsetHeight;
+
+          root.style.width = `${width}px`;
+          root.style.height = `${height}px`;
+        }
       } catch (err) {
-        console.error("Failed to size or place window:", err);
+        console.error("Failed to size window:", err);
       }
     })();
-  }, [
-    settings,
-    settingsLoaded,
-    tab,
-    consentGiven,
-    updateInfo,
-    needsAccessibilityBanner,
-  ]);
+  }, [settings, settingsLoaded, tab, updateInfo, needsAccessibilityBanner]);
 
   useEffect(() => {
     const checkForUpdates = () => {
@@ -364,17 +365,6 @@ export default function App() {
     }
   };
 
-  const handleConsentAccept = () => {
-    updateSettings({ telemetryEnabled: true });
-    setTelemetryConsent(true);
-    setConsentGiven(true);
-  };
-
-  const handleConsentDecline = () => {
-    setTelemetryConsent(true);
-    setConsentGiven(true);
-  };
-
   const handleRequestAccessibilityPermission = async () => {
     try {
       setPermissionAction("request");
@@ -405,20 +395,6 @@ export default function App() {
       setPermissionAction(null);
     }
   };
-
-  if (!settingsLoaded) return null;
-
-  // -- Consent gate --
-  if (consentGiven === false) {
-    return (
-      <TelemetryConsent
-        version={appInfo.version}
-        onAccept={handleConsentAccept}
-        onDecline={handleConsentDecline}
-      />
-    );
-  }
-
   return (
     <div className="app-root" data-tab={tab}>
       <TitleBar
@@ -488,7 +464,6 @@ export default function App() {
               onPickPosition={handlePickPosition}
             />
           ))}
-        {tab === "macro" && <MacroPanel />}
         {tab === "settings" && (
           <SettingsPanel
             settings={settings}

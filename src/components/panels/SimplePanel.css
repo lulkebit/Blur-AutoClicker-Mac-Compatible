@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+.vcontainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  gap: 8px;
+
+}
+.hcontainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;            
+}
+
+.InputBox {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  
+  padding: 4px 16px;
+  margin: 4px;
+  
+  font-weight: 600;
+
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.vertical-devider {
+  align-self: center;
+  height: 16px;
+  width: 1px;
+
+  background-color: rgba(255, 255, 255, 0.25);
+
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.postfix {
+  align-self: flex-end;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.muted{
+  color: color-mix(var(--text-primary), var(--text-muted));
+}
+
+.numbervalue{
+  margin-left: 8px;
+}
+
+.faderbox {
+  position: relative;
+  z-index: 1000;
+  
+  display: flex;
+  height: 100%;
+  width: auto;
+  max-width: 130px;
+  overflow: hidden;
+}
+.faderbox::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  
+  background: linear-gradient(90deg, #ffffff00, #ffffff00,#121212);
+  z-index: 1; 
+  pointer-events: none;
+}
+
+.simple-inline-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  width: 3ch;
+  min-width: 3ch;
+  padding: 0;
+  margin: 0;
+  text-align: right;
+}
+
+.simple-inline-input.numbervalue {
+  margin-left: 8px;
+}
+
+.simple-inline-input::-webkit-inner-spin-button,
+.simple-inline-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.simple-hotkey-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  width: 120px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.simple-cycle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1.1;
+  height: 24px;
+}
+
+.Icon,
+.icon {
+  color: var(--text);
+  flex-shrink: 0;
+  display: block;
+  align-self: center;
+}
+
+.clock-icon {
+  margin-left: 8px;
+}
+
+.simple-cycle-btn:hover {
+  color: var(--text-muted);
+}
+
+.simple-cycle-btn svg {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.simple-cycle-btn:hover svg {
+  color: var(--text-muted);
+}

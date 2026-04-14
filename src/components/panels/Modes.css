@@ -110,6 +110,11 @@
   color: var(--text-primary);
 }
 
+.simple-seg-btn:focus,
+.simple-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 /* =====================
    ADVANCED
    ===================== */

@@ -11,7 +11,7 @@ button{
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 2px solid var(--border-subtle);
   position: relative;
   z-Index: 10;
   flex-Shrink: 0;
@@ -47,17 +47,22 @@ button{
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 2px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   border-radius: 6px;
   color: var(--text-dim);
+  line-height: 0;
   transition: all 0.5s ease;
 }
 
 .settings-button:hover {
   transition-duration: 0.2s;
   color: var(--text-primary);
+  background: var(--bg-elevated);
 }
 .settings-svg {
   transition: transform 0.5s ease-in-out;
@@ -73,44 +78,49 @@ button{
   color: var(--text-primary);
 }
 
-.tab-pill {
-  /* Layout & Sizing */
+.tab-icon-group {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 24px;
-  min-width: 24px;
-  padding: 2px 8px;
-  
-  /* Typography */
-  font-family: var(--font-main);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  
-  /* Styling */
+  width: 32px;
+  height: 32px;
+  padding: 0;
   background: transparent;
-  border: 2px solid var(--border);
+  border: none;
   border-radius: var(--radius-sm);
   color: var(--text-dim);
+  line-height: 0;
   cursor: pointer;
-  
-  /* Animation */
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: hidden;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+  -webkit-app-region: no-drag;
 }
 
-.tab-pill:hover {
-  color: var(--text-muted);
-  border-color: var(--text-dim);
-}
-
-.tab-pill.active {
+.tab-icon-btn:hover {
+  color: var(--text-primary);
   background: var(--bg-elevated);
-  border-color: var(--active-color);
+}
+
+.tab-icon-btn.active {
+  background: color-mix(in oklab, var(--active-color) 14%, transparent);
   color: var(--active-color);
-  padding: 2px 12px;
+  /* box-shadow: 0 0 0 1px color-mix(in oklab, var(--active-color) 55%, transparent); */
+}
+
+.tab-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--active-color) 35%, transparent);
+}
+
+.tab-icon-btn svg {
+  display: block;
 }
 
 .window-btn {
@@ -161,21 +171,21 @@ button{
 .title-flipper {
   display: inline-block;
   transform-origin: center bottom;
-  transition: transform 0.35s ease-in, opacity 0.35s ease-in;
+  transition: transform 0.2s ease-in, opacity 0.2s ease-in;
 }
 
 .title-flipper.flip-out {
-  transform: rotateX(90deg);
+  transform: rotateX(65deg);
   opacity: 0;
 }
 
 .title-flipper.flip-in {
-  animation: titleFlipIn 0.35s ease-out forwards;
+  animation: titleFlipIn 0.2s ease-out forwards;
 }
 
 @keyframes titleFlipIn {
   0% {
-    transform: rotateX(-90deg);
+    transform: rotateX(-65deg);
     opacity: 0;
   }
   100% {
