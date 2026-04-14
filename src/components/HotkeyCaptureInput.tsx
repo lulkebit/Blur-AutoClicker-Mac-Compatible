@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   captureHotkey,
+  captureMouseHotkey,
+  captureWheelHotkey,
   formatHotkeyForDisplay,
   getKeyboardLayoutMap,
 } from "../hotkeys";
@@ -55,6 +57,13 @@ export default function HotkeyCaptureInput({
     [layoutMap, listening, value],
   );
 
+  const acceptHotkey = (nextHotkey: string | null, target: HTMLInputElement) => {
+    if (!nextHotkey) return;
+    onChange(nextHotkey);
+    setListening(false);
+    target.blur();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -78,12 +87,32 @@ export default function HotkeyCaptureInput({
       return;
     }
 
-    const nextHotkey = captureHotkey(event);
-    if (!nextHotkey) return;
+    acceptHotkey(captureHotkey(event), event.currentTarget);
+  };
 
-    onChange(nextHotkey);
-    setListening(false);
-    event.currentTarget.blur();
+  const handleMouseDown = (event: React.MouseEvent<HTMLInputElement>) => {
+    // Left click (button 0) is used to start listening — don't capture it
+    if (!listening || event.button === 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    acceptHotkey(captureMouseHotkey(event), event.currentTarget);
+  };
+
+  const handleWheel = (event: React.WheelEvent<HTMLInputElement>) => {
+    if (!listening) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    acceptHotkey(captureWheelHotkey(event), event.currentTarget);
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLInputElement>) => {
+    // Prevent context menu when listening so right-click can be captured
+    if (listening) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   };
 
   return (
@@ -95,6 +124,9 @@ export default function HotkeyCaptureInput({
       onFocus={() => setListening(true)}
       onBlur={() => setListening(false)}
       onKeyDown={handleKeyDown}
+      onMouseDown={handleMouseDown}
+      onWheel={handleWheel}
+      onContextMenu={handleContextMenu}
       spellCheck={false}
       style={style}
     />

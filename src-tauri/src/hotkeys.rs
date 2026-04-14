@@ -1,9 +1,23 @@
 use crate::AppHandle;
 use crate::ClickerState;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::Manager;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    CallNextHookEx, GetMessageW, SetWindowsHookExW, MSG, WH_MOUSE_LL, WM_MOUSEWHEEL,
+};
+
+/// Pseudo virtual-key codes for scroll wheel (not real Windows VK codes).
+pub const VK_SCROLL_UP_PSEUDO: i32 = -1;
+pub const VK_SCROLL_DOWN_PSEUDO: i32 = -2;
+
+/// Epoch-ms timestamps of the last detected scroll events (set by the mouse hook).
+static SCROLL_UP_AT: AtomicU64 = AtomicU64::new(0);
+static SCROLL_DOWN_AT: AtomicU64 = AtomicU64::new(0);
+
+/// How long (ms) a scroll event is considered "pressed" for the polling loop.
+const SCROLL_WINDOW_MS: u64 = 200;
 
 use crate::engine::worker::now_epoch_ms;
 use crate::engine::worker::start_clicker_inner;
@@ -92,6 +106,26 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32,
     let lower = token.trim().to_lowercase();
 
     let mapped = match lower.as_str() {
+        // ── Mouse buttons ──────────────────────────────────────────
+        "mouseleft" | "mouse1" => Some((VK_LBUTTON as i32, String::from("mouseleft"))),
+        "mouseright" | "mouse2" => Some((VK_RBUTTON as i32, String::from("mouseright"))),
+        "mousemiddle" | "mouse3" | "scrollbutton" | "middleclick" => {
+            Some((VK_MBUTTON as i32, String::from("mousemiddle")))
+        }
+        "mouse4" | "mouseback" | "xbutton1" => {
+            Some((VK_XBUTTON1 as i32, String::from("mouse4")))
+        }
+        "mouse5" | "mouseforward" | "xbutton2" => {
+            Some((VK_XBUTTON2 as i32, String::from("mouse5")))
+        }
+        // ── Scroll wheel (pseudo-VKs) ──────────────────────────────
+        "scrollup" | "wheelup" => {
+            Some((VK_SCROLL_UP_PSEUDO, String::from("scrollup")))
+        }
+        "scrolldown" | "wheeldown" => {
+            Some((VK_SCROLL_DOWN_PSEUDO, String::from("scrolldown")))
+        }
+        // ── Keyboard keys (original) ───────────────────────────────
         "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
             Some((VK_OEM_102 as i32, String::from("IntlBackslash")))
         }
@@ -295,9 +329,83 @@ pub fn is_hotkey_binding_pressed(binding: &HotkeyBinding) -> bool {
         return false;
     }
 
-    is_vk_down(binding.main_vk)
+    is_main_key_active(binding.main_vk)
+}
+
+/// Check if the main key is currently active.  For normal VKs this uses
+/// `GetAsyncKeyState`; for scroll pseudo-VKs it checks the timestamp
+/// set by the low-level mouse hook.
+fn is_main_key_active(vk: i32) -> bool {
+    match vk {
+        VK_SCROLL_UP_PSEUDO => {
+            let ts = SCROLL_UP_AT.load(Ordering::SeqCst);
+            if ts == 0 {
+                return false;
+            }
+            let now = now_epoch_ms();
+            now.saturating_sub(ts) < SCROLL_WINDOW_MS
+        }
+        VK_SCROLL_DOWN_PSEUDO => {
+            let ts = SCROLL_DOWN_AT.load(Ordering::SeqCst);
+            if ts == 0 {
+                return false;
+            }
+            let now = now_epoch_ms();
+            now.saturating_sub(ts) < SCROLL_WINDOW_MS
+        }
+        _ => is_vk_down(vk),
+    }
 }
 
 pub fn is_vk_down(vk: i32) -> bool {
     unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
+}
+
+// ─── Low-level mouse hook for scroll wheel detection ────────────────────────
+
+/// Must be called once at startup (from `lib.rs` setup).  Spawns a thread that
+/// installs a `WH_MOUSE_LL` hook and pumps messages so the hook callback fires.
+pub fn start_scroll_hook() {
+    std::thread::spawn(|| {
+        unsafe {
+            let hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), 0, 0);
+            if hook == 0 {
+                log::error!("[Hotkeys] Failed to install WH_MOUSE_LL hook");
+                return;
+            }
+
+            // Pump messages forever – required for the hook callback to fire.
+            let mut msg: MSG = std::mem::zeroed();
+            while GetMessageW(&mut msg, 0, 0, 0) > 0 {}
+        }
+    });
+}
+
+/// Raw low-level mouse-hook callback.  We only care about `WM_MOUSEWHEEL`.
+unsafe extern "system" fn mouse_hook_proc(
+    code: i32,
+    w_param: usize,
+    l_param: isize,
+) -> isize {
+    if code >= 0 && w_param == WM_MOUSEWHEEL as usize {
+        // lParam -> pointer to MSLLHOOKSTRUCT; mouseData high word = wheel delta
+        #[repr(C)]
+        struct MSLLHOOKSTRUCT {
+            pt_x: i32,
+            pt_y: i32,
+            mouse_data: u32,
+            flags: u32,
+            time: u32,
+            extra_info: usize,
+        }
+        let info = &*(l_param as *const MSLLHOOKSTRUCT);
+        let delta = (info.mouse_data >> 16) as i16; // high word, signed
+        let now = now_epoch_ms();
+        if delta > 0 {
+            SCROLL_UP_AT.store(now, Ordering::SeqCst);
+        } else if delta < 0 {
+            SCROLL_DOWN_AT.store(now, Ordering::SeqCst);
+        }
+    }
+    CallNextHookEx(0, code, w_param, l_param)
 }
