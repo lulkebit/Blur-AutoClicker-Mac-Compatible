@@ -24,13 +24,16 @@ use super::CLICK_COUNT;
 // changed from normal cpu measurement because it was not accurately
 // showing cpu usage for short clicker run times.
 
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn QueryThreadCycleTime(thread: *mut core::ffi::c_void, cycles: *mut u64) -> i32
 );
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn GetCurrentThread() -> *mut core::ffi::c_void
 );
 
+#[cfg(target_os = "windows")]
 #[inline]
 fn thread_cycles() -> u64 {
     let mut cycles: u64 = 0;
@@ -41,6 +44,7 @@ fn thread_cycles() -> u64 {
 }
 
 // Calibrates the CPU cycle frequency
+#[cfg(target_os = "windows")]
 fn calibrate_cycle_freq() -> f64 {
     let start_cycles = thread_cycles();
     let start = Instant::now();
@@ -52,7 +56,7 @@ fn calibrate_cycle_freq() -> f64 {
 
     let cycle_delta = thread_cycles().saturating_sub(start_cycles);
     let wall_secs = start.elapsed().as_secs_f64();
-    
+
     if wall_secs > 0.0 && cycle_delta > 0 {
         let freq = cycle_delta as f64 / wall_secs;
         log::info!("CPU: calibrated at {:.0} MHz", freq / 1_000_000.0);
@@ -62,12 +66,38 @@ fn calibrate_cycle_freq() -> f64 {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+#[inline]
+fn thread_cycles() -> u64 {
+    0
+}
+
+#[cfg(not(target_os = "windows"))]
+fn calibrate_cycle_freq() -> f64 {
+    0.0
+}
+
 // -- Tauri-aware commands --
 
 pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
         return Err(String::from("Clicker is already running"));
+    }
+
+    let permission_status = crate::permissions::accessibility_permission_status();
+    if permission_status.supported && !permission_status.granted {
+        let _ = crate::permissions::request_accessibility_permission();
+    }
+
+    if let Err(error) = crate::permissions::ensure_accessibility_permission() {
+        {
+            *state.last_error.lock().unwrap() = Some(error.clone());
+            *state.stop_reason.lock().unwrap() = None;
+        }
+        let payload = current_status(app);
+        emit_status(app);
+        return Err(payload.last_error.unwrap_or(error));
     }
 
     {
@@ -376,7 +406,7 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
     let cpu_cycles_end = thread_cycles();
     let cycle_delta = cpu_cycles_end.saturating_sub(cpu_cycles_start);
 
-    let avg_cpu: f64 = if elapsed_secs < 0.001 {
+    let avg_cpu: f64 = if elapsed_secs < 0.001 || cycle_freq <= f64::EPSILON {
         -1.0
     } else {
         let cpu_seconds = cycle_delta as f64 / cycle_freq;

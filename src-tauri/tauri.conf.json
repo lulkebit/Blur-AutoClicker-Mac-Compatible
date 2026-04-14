@@ -26,10 +26,12 @@
           "label": "overlay",
           "url": "overlay.html",
           "title": "Overlay",
-          "fullscreen": true,
+          "width": 100,
+          "height": 100,
           "transparent": true,
           "decorations": false,
           "alwaysOnTop": true,
+          "visibleOnAllWorkspaces": true,
           "visible": false,
           "skipTaskbar": true,
           "focusable": false,
@@ -53,8 +55,8 @@
     },
     "bundle": {
       "active": true,
-      "targets": "nsis",
+      "targets": ["nsis", "app", "dmg"],
       "createUpdaterArtifacts": true,
-      "icon": ["icons/icon.ico"]
+      "icon": ["icons/icon.ico", "icons/icon.icns"]
     }
 }

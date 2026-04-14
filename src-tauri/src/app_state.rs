@@ -38,4 +38,7 @@ pub struct AppInfoPayload {
     pub version: String,
     pub update_status: String,
     pub screenshot_protection_supported: bool,
+    pub platform: String,
+    pub accessibility_permission_supported: bool,
+    pub accessibility_permission_granted: bool,
 }

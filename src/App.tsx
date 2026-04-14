@@ -28,8 +28,14 @@ import UpdateBanner from "./components/Updatebanner";
 
 export type Tab = "simple" | "advanced" | "macro" | "settings";
 
-function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
-  const extra = hasUpdate ? 30 : 0;
+function getPanelSize(
+  tab: Tab,
+  settings: Settings,
+  hasUpdate: boolean,
+  hasAccessibilityBanner: boolean,
+) {
+  const extra =
+    (hasUpdate ? 30 : 0) + (hasAccessibilityBanner ? 96 : 0);
   if (tab === "settings") return { width: 500, height: 600 + extra };
   if (tab === "simple") return { width: 500, height: 150 + extra };
   if (tab === "macro") return { width: 500, height: 150 + extra };
@@ -49,6 +55,9 @@ const DEFAULT_APP_INFO: AppInfo = {
   version: "0.1.0",
   updateStatus: "Update checks are disabled in development",
   screenshotProtectionSupported: false,
+  platform: "unknown",
+  accessibilityPermissionSupported: false,
+  accessibilityPermissionGranted: false,
 };
 
 async function syncSettingsToBackend(settings: Settings) {
@@ -70,6 +79,9 @@ export default function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState<ClickerStatus>(DEFAULT_STATUS);
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
+  const [permissionAction, setPermissionAction] = useState<
+    "request" | "open" | null
+  >(null);
   const hotkeyTimer = useRef<number | null>(null);
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const launchWindowPlacementDone = useRef(false);
@@ -102,6 +114,10 @@ export default function App() {
   const updateSettings = (patch: Partial<Settings>) => {
     persistSettings({ ...settingsRef.current, ...patch });
   };
+
+  const needsAccessibilityBanner =
+    appInfo.accessibilityPermissionSupported &&
+    !appInfo.accessibilityPermissionGranted;
 
   const applyStartupWindowPlacement = async () => {
     await getCurrentWindow().center();
@@ -157,6 +173,23 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!appInfo.accessibilityPermissionSupported) return;
+
+    const handleWindowFocus = () => {
+      invoke<AppInfo>("get_app_info")
+        .then(setAppInfo)
+        .catch((err) => {
+          console.error("Failed to refresh app info:", err);
+        });
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => {
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [appInfo.accessibilityPermissionSupported]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -239,7 +272,12 @@ export default function App() {
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
-    const { width, height } = getPanelSize(tab, settings, !!updateInfo);
+    const { width, height } = getPanelSize(
+      tab,
+      settings,
+      !!updateInfo,
+      needsAccessibilityBanner,
+    );
 
     void (async () => {
       try {
@@ -256,7 +294,14 @@ export default function App() {
         console.error("Failed to size or place window:", err);
       }
     })();
-  }, [settings, settingsLoaded, tab, consentGiven, updateInfo]);
+  }, [
+    settings,
+    settingsLoaded,
+    tab,
+    consentGiven,
+    updateInfo,
+    needsAccessibilityBanner,
+  ]);
 
   useEffect(() => {
     const checkForUpdates = () => {
@@ -330,6 +375,37 @@ export default function App() {
     setConsentGiven(true);
   };
 
+  const handleRequestAccessibilityPermission = async () => {
+    try {
+      setPermissionAction("request");
+      const permission = await invoke<{
+        supported: boolean;
+        granted: boolean;
+      }>("request_accessibility_permission");
+
+      setAppInfo((current) => ({
+        ...current,
+        accessibilityPermissionSupported: permission.supported,
+        accessibilityPermissionGranted: permission.granted,
+      }));
+    } catch (err) {
+      console.error("Failed to request Accessibility permission:", err);
+    } finally {
+      setPermissionAction(null);
+    }
+  };
+
+  const handleOpenAccessibilitySettings = async () => {
+    try {
+      setPermissionAction("open");
+      await invoke("open_accessibility_settings");
+    } catch (err) {
+      console.error("Failed to open Accessibility settings:", err);
+    } finally {
+      setPermissionAction(null);
+    }
+  };
+
   if (!settingsLoaded) return null;
 
   // -- Consent gate --
@@ -361,6 +437,38 @@ export default function App() {
           currentVersion={updateInfo.currentVersion}
           latestVersion={updateInfo.latestVersion}
         />
+      )}
+      {needsAccessibilityBanner && (
+        <section className="permission-banner">
+          <div className="permission-banner__copy">
+            <span className="permission-banner__title">
+              Accessibility access is required on macOS
+            </span>
+            <span className="permission-banner__text">
+              BlurAutoClicker needs this to move the mouse and send clicks.
+              Allow access here or open System Settings &gt; Privacy &amp;
+              Security &gt; Accessibility.
+            </span>
+          </div>
+          <div className="permission-banner__actions">
+            <button
+              className="permission-banner__button permission-banner__button--primary"
+              disabled={permissionAction !== null}
+              onClick={handleRequestAccessibilityPermission}
+            >
+              {permissionAction === "request"
+                ? "Opening Prompt..."
+                : "Allow Access"}
+            </button>
+            <button
+              className="permission-banner__button"
+              disabled={permissionAction !== null}
+              onClick={handleOpenAccessibilitySettings}
+            >
+              {permissionAction === "open" ? "Opening..." : "Open Settings"}
+            </button>
+          </div>
+        </section>
       )}
       <main className="panel-area">
         {tab === "simple" && (

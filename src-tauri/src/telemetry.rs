@@ -148,7 +148,24 @@ pub async fn send_stats_rows(rows: &[RunRecord]) -> Result<(), String> {
 }
 
 fn parse_supabase_creds() -> Result<(String, String), String> {
-    let raw = include_str!("../.tauri/Supabase.py");
+    if let (Ok(url), Ok(key)) = (
+        std::env::var("BLUR_SUPABASE_URL"),
+        std::env::var("BLUR_SUPABASE_KEY"),
+    ) {
+        if !url.trim().is_empty() && !key.trim().is_empty() {
+            return Ok((url, key));
+        }
+    }
+
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(".tauri")
+        .join("Supabase.py");
+    let raw = std::fs::read_to_string(&path).map_err(|_| {
+        format!(
+            "Failed to load Supabase credentials from {}",
+            path.display()
+        )
+    })?;
     let mut url = None;
     let mut key = None;
 

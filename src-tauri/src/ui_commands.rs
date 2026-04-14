@@ -16,6 +16,7 @@ use crate::engine::worker::now_epoch_ms;
 use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::hotkeys::register_hotkey_inner;
+use crate::permissions::AccessibilityPermissionPayload;
 
 #[tauri::command]
 pub fn start_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
@@ -128,11 +129,26 @@ pub fn pick_position() -> Result<PositionPayload, String> {
 #[tauri::command]
 pub fn get_app_info(app: AppHandle) -> Result<AppInfoPayload, String> {
     let version = app.package_info().version.to_string();
+    let accessibility_status = crate::permissions::accessibility_permission_status();
+
     Ok(AppInfoPayload {
         version,
         update_status: String::from("Update checks are disabled in development"),
         screenshot_protection_supported: false,
+        platform: std::env::consts::OS.to_string(),
+        accessibility_permission_supported: accessibility_status.supported,
+        accessibility_permission_granted: accessibility_status.granted,
     })
+}
+
+#[tauri::command]
+pub fn request_accessibility_permission() -> Result<AccessibilityPermissionPayload, String> {
+    crate::permissions::request_accessibility_permission()
+}
+
+#[tauri::command]
+pub fn open_accessibility_settings() -> Result<(), String> {
+    crate::permissions::open_accessibility_settings()
 }
 
 #[tauri::command]

@@ -39,6 +39,9 @@ type LayoutMapLike = {
 };
 
 let layoutMapPromise: Promise<LayoutMapLike | null> | null = null;
+const IS_MAC = /mac|iphone|ipad|ipod/i.test(
+  `${navigator.userAgent} ${navigator.platform}`,
+);
 
 function normalizeModifierToken(token: string): string | null {
   return MODIFIER_ALIASES[token.trim().toLowerCase()] ?? null;
@@ -202,9 +205,9 @@ export function formatHotkeyForDisplay(value: string, layoutMap: LayoutMapLike |
       const modifier = normalizeModifierToken(part);
       if (modifier) {
         if (modifier === "ctrl") return "Ctrl";
-        if (modifier === "alt") return "Alt";
+        if (modifier === "alt") return IS_MAC ? "Option" : "Alt";
         if (modifier === "shift") return "Shift";
-        return "Super";
+        return IS_MAC ? "Cmd" : "Super";
       }
 
       const display = displayTokenFromStoredValue(part, layoutMap);

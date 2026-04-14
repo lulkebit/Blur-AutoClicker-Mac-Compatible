@@ -21,7 +21,7 @@ Performance is also a heavy focus of this. While version 3 and onwards run on a 
 <div align="center">
     <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/30s_500cps_Speed_Test.png" width="600"/>
 </div>
-<p align="center"><em>Blur Auto Clicker reaching 500 CPS steadily (windows limit¹)</em></p>
+<p align="center"><em>Blur Auto Clicker reaching 500 CPS steadily (Windows limit¹)</em></p>
 
 Simple Mode:
 - On / Off Indicator (blur logo turns green when active)
@@ -45,11 +45,20 @@ Other Features:
 
 ## Installation
 
-1. download from releases  
+Windows:
+1. download the `.exe` / installer from releases
 2. run the installer
-3. run the program (default location is `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`)
+3. launch the app
 
-config and stats are stored in `%appdata%/BlurAutoClicker`
+macOS:
+1. download the `.dmg` from releases
+2. drag `BlurAutoClicker.app` into `Applications`
+3. launch the app once
+4. if macOS blocks automated clicks, allow the app under `System Settings > Privacy & Security > Accessibility`
+
+config and stats are stored in the platform-local app data directory:
+- Windows: `%localappdata%/BlurAutoClicker`
+- macOS: `~/Library/Application Support/BlurAutoClicker`
 
 Info: If you are on version 2.1.2 or below, delete the old executable (the installer will not delete it for you).
 The old Config and Stats files will unfortunately not be compatible with the new versions (3.0.0 and above), so they will be deleted upon launching the application.
@@ -66,4 +75,5 @@ Ko-fi: https://ko-fi.com/blur009
 You can also support the project by starring the repository and sharing it with your friends :). Thank you for your support!
 
 ## Other Info
-1. Windows has a limit of around 500 CPS for mouse events. This is because Windows timer resolution is limited to about 1ms at minimum (1000cps) but windows also needs to do other things, so the practical limit is around 800cps, but since I can not guarantee that performance on every computer, I set the limit to 500cps.
+1. Windows has a limit of around 500 CPS for mouse events. This is because Windows timer resolution is limited to about 1ms at minimum (1000cps) but Windows also needs to do other things, so the practical limit is around 800cps, but since I can not guarantee that performance on every computer, I set the limit to 500cps.
+2. On macOS, synthetic mouse input requires Accessibility permission. Without it, the app UI can open normally, but automated clicking may be blocked by the OS.

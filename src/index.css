@@ -62,3 +62,77 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+
+.permission-banner {
+  margin: 14px 20px 0;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  border: 1px solid rgba(255, 194, 92, 0.28);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(255, 194, 92, 0.16), rgba(255, 194, 92, 0.08)),
+    var(--bg-surface);
+}
+
+.permission-banner__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.permission-banner__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.permission-banner__text {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.permission-banner__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.permission-banner__button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-family: 'DMSans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.permission-banner__button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.permission-banner__button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.permission-banner__button--primary {
+  border-color: rgba(255, 194, 92, 0.24);
+  background: rgba(255, 194, 92, 0.18);
+}
+
+.permission-banner__button--primary:hover {
+  background: rgba(255, 194, 92, 0.28);
+  border-color: rgba(255, 194, 92, 0.34);
+}

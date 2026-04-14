@@ -30,8 +30,8 @@ pub struct RunRecord {
 }
 
 fn stats_file_path() -> PathBuf {
-    let app_data = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(app_data)
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
         .join("BlurAutoClicker")
         .join("stats.csv")
 }
@@ -42,12 +42,19 @@ fn round2(v: f64) -> f64 {
 
 // -- Row hashing (HMAC-SHA256) --
 
-fn get_signing_key() -> &'static str {
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/.tauri/StatsKey.py"))
+fn get_signing_key_source() -> String {
+    if let Ok(value) = std::env::var("BLUR_STATS_SIGNING_KEY") {
+        return format!("key = '{}'", value);
+    }
+
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(".tauri")
+        .join("StatsKey.py");
+    fs::read_to_string(path).unwrap_or_default()
 }
 
 fn parse_key() -> Vec<u8> {
-    let raw = get_signing_key();
+    let raw = get_signing_key_source();
     for line in raw.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {

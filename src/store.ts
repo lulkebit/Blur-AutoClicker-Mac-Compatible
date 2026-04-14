@@ -58,6 +58,9 @@ export interface AppInfo {
   version: string;
   updateStatus: string;
   screenshotProtectionSupported: boolean;
+  platform: string;
+  accessibilityPermissionSupported: boolean;
+  accessibilityPermissionGranted: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

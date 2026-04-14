@@ -42,6 +42,7 @@ pub struct RunOutcome {
 }
 static CLICK_COUNT: AtomicI64 = AtomicI64::new(0);
 
+#[cfg(target_os = "windows")]
 #[link(name = "ntdll")]
 extern "system" {
     fn NtSetTimerResolution(
@@ -49,4 +50,14 @@ extern "system" {
         SetResolution: u8,
         CurrentResolution: *mut u32,
     ) -> u32;
+}
+
+#[cfg(not(target_os = "windows"))]
+#[allow(non_snake_case)]
+pub unsafe fn NtSetTimerResolution(
+    _desired_resolution: u32,
+    _set_resolution: u8,
+    _current_resolution: *mut u32,
+) -> u32 {
+    0
 }

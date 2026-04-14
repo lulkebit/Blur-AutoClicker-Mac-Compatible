@@ -1,19 +1,8 @@
+use super::mouse::current_cursor_position;
 use super::mouse::current_screen_size;
 use super::ClickerConfig;
-use windows_sys::Win32::Foundation::POINT;
-use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
 pub fn should_stop_for_failsafe(config: &ClickerConfig) -> Option<String> {
-    pub fn current_cursor_position() -> Option<(i32, i32)> {
-        let mut point = POINT { x: 0, y: 0 };
-        let ok = unsafe { GetCursorPos(&mut point) };
-        if ok == 0 {
-            None
-        } else {
-            Some((point.x, point.y))
-        }
-    }
-
     let cursor = current_cursor_position()?;
     let screen = current_screen_size()?;
 

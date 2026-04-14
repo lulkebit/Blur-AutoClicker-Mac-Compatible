@@ -2,45 +2,219 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
-    MOUSEINPUT,
-};
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, SetCursorPos, SM_CXSCREEN, SM_CYSCREEN,
-};
-
 use super::rng::SmallRng;
 use super::sleep_interruptible;
 
-pub fn current_cursor_position() -> Option<(i32, i32)> {
-    use windows_sys::Win32::Foundation::POINT;
-    use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+#[derive(Clone, Copy, Debug)]
+pub enum MouseEventSpec {
+    LeftDown,
+    LeftUp,
+    RightDown,
+    RightUp,
+    MiddleDown,
+    MiddleUp,
+}
 
-    let mut point = POINT { x: 0, y: 0 };
-    let ok = unsafe { GetCursorPos(&mut point) };
-    if ok == 0 {
-        None
-    } else {
-        Some((point.x, point.y))
+#[cfg(target_os = "windows")]
+mod platform {
+    use super::MouseEventSpec;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+        MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+        MOUSEINPUT,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, SetCursorPos, SM_CXSCREEN, SM_CYSCREEN,
+    };
+
+    pub fn current_cursor_position() -> Option<(i32, i32)> {
+        use windows_sys::Win32::Foundation::POINT;
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+
+        let mut point = POINT { x: 0, y: 0 };
+        let ok = unsafe { GetCursorPos(&mut point) };
+        if ok == 0 {
+            None
+        } else {
+            Some((point.x, point.y))
+        }
+    }
+
+    pub fn current_screen_size() -> Option<(i32, i32)> {
+        let width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
+        let height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+
+        use windows_sys::Win32::UI::HiDpi::GetDpiForSystem;
+        let dpi = unsafe { GetDpiForSystem() };
+        let scale = dpi as f64 / 96.0;
+
+        Some((
+            (width as f64 / scale) as i32,
+            (height as f64 / scale) as i32,
+        ))
+    }
+
+    pub fn move_mouse(x: i32, y: i32) {
+        unsafe { SetCursorPos(x, y) };
+    }
+
+    fn mouse_event_flag(event: MouseEventSpec) -> u32 {
+        match event {
+            MouseEventSpec::LeftDown => MOUSEEVENTF_LEFTDOWN,
+            MouseEventSpec::LeftUp => MOUSEEVENTF_LEFTUP,
+            MouseEventSpec::RightDown => MOUSEEVENTF_RIGHTDOWN,
+            MouseEventSpec::RightUp => MOUSEEVENTF_RIGHTUP,
+            MouseEventSpec::MiddleDown => MOUSEEVENTF_MIDDLEDOWN,
+            MouseEventSpec::MiddleUp => MOUSEEVENTF_MIDDLEUP,
+        }
+    }
+
+    fn make_input(flags: u32, time: u32) -> INPUT {
+        INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+                mi: MOUSEINPUT {
+                    dx: 0,
+                    dy: 0,
+                    mouseData: 0,
+                    dwFlags: flags,
+                    time,
+                    dwExtraInfo: 0,
+                },
+            },
+        }
+    }
+
+    pub fn send_mouse_event(event: MouseEventSpec, _click_state: i64) {
+        let input = make_input(mouse_event_flag(event), 0);
+        unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    }
+
+    pub fn send_batch(down: MouseEventSpec, up: MouseEventSpec, n: usize, _hold_ms: u32) {
+        let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
+        for _ in 0..n {
+            inputs.push(make_input(mouse_event_flag(down), 0));
+            inputs.push(make_input(mouse_event_flag(up), 0));
+        }
+        unsafe {
+            SendInput(
+                inputs.len() as u32,
+                inputs.as_ptr(),
+                std::mem::size_of::<INPUT>() as i32,
+            )
+        };
     }
 }
 
-pub fn current_screen_size() -> Option<(i32, i32)> {
-    let width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
-    let height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
-    if width <= 0 || height <= 0 {
-        return None;
-    }
-    use windows_sys::Win32::UI::HiDpi::GetDpiForSystem;
-    let dpi = unsafe { GetDpiForSystem() };
-    let scale = dpi as f64 / 96.0;
+#[cfg(target_os = "macos")]
+mod platform {
+    use super::MouseEventSpec;
+    use core_graphics::display::{CGDisplay, CGPoint};
+    use core_graphics::event::{
+        CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, EventField,
+    };
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
-    Some((
-        (width as f64 / scale) as i32,
-        (height as f64 / scale) as i32,
-    ))
+    fn event_source() -> Option<CGEventSource> {
+        CGEventSource::new(CGEventSourceStateID::CombinedSessionState).ok()
+    }
+
+    fn current_location() -> Option<CGPoint> {
+        let source = event_source()?;
+        let event = CGEvent::new(source).ok()?;
+        Some(event.location())
+    }
+
+    pub fn current_cursor_position() -> Option<(i32, i32)> {
+        let point = current_location()?;
+        Some((point.x.round() as i32, point.y.round() as i32))
+    }
+
+    pub fn current_screen_size() -> Option<(i32, i32)> {
+        let bounds = CGDisplay::main().bounds();
+        Some((
+            bounds.size.width.round() as i32,
+            bounds.size.height.round() as i32,
+        ))
+    }
+
+    pub fn move_mouse(x: i32, y: i32) {
+        let _ = CGDisplay::warp_mouse_cursor_position(CGPoint::new(x as f64, y as f64));
+    }
+
+    fn mouse_event_parts(event: MouseEventSpec) -> (CGEventType, CGMouseButton, Option<i64>) {
+        match event {
+            MouseEventSpec::LeftDown => (CGEventType::LeftMouseDown, CGMouseButton::Left, None),
+            MouseEventSpec::LeftUp => (CGEventType::LeftMouseUp, CGMouseButton::Left, None),
+            MouseEventSpec::RightDown => (CGEventType::RightMouseDown, CGMouseButton::Right, None),
+            MouseEventSpec::RightUp => (CGEventType::RightMouseUp, CGMouseButton::Right, None),
+            MouseEventSpec::MiddleDown => {
+                (CGEventType::OtherMouseDown, CGMouseButton::Center, Some(2))
+            }
+            MouseEventSpec::MiddleUp => (CGEventType::OtherMouseUp, CGMouseButton::Center, Some(2)),
+        }
+    }
+
+    pub fn send_mouse_event(event: MouseEventSpec, click_state: i64) {
+        let source = match event_source() {
+            Some(source) => source,
+            None => return,
+        };
+        let location = match current_location() {
+            Some(location) => location,
+            None => return,
+        };
+        let (event_type, button, button_number) = mouse_event_parts(event);
+        let mouse_event = match CGEvent::new_mouse_event(source, event_type, location, button) {
+            Ok(event) => event,
+            Err(_) => return,
+        };
+
+        mouse_event.set_integer_value_field(EventField::MOUSE_EVENT_CLICK_STATE, click_state);
+        if let Some(button_number) = button_number {
+            mouse_event
+                .set_integer_value_field(EventField::MOUSE_EVENT_BUTTON_NUMBER, button_number);
+        }
+
+        mouse_event.post(CGEventTapLocation::HID);
+    }
+
+    pub fn send_batch(down: MouseEventSpec, up: MouseEventSpec, n: usize, _hold_ms: u32) {
+        for _ in 0..n {
+            send_mouse_event(down, 1);
+            send_mouse_event(up, 1);
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+mod platform {
+    use super::MouseEventSpec;
+
+    pub fn current_cursor_position() -> Option<(i32, i32)> {
+        None
+    }
+
+    pub fn current_screen_size() -> Option<(i32, i32)> {
+        None
+    }
+
+    pub fn move_mouse(_x: i32, _y: i32) {}
+
+    pub fn send_mouse_event(_event: MouseEventSpec, _click_state: i64) {}
+
+    pub fn send_batch(_down: MouseEventSpec, _up: MouseEventSpec, _n: usize, _hold_ms: u32) {}
+}
+
+pub fn current_cursor_position() -> Option<(i32, i32)> {
+    platform::current_cursor_position()
+}
+
+pub fn current_screen_size() -> Option<(i32, i32)> {
+    platform::current_screen_size()
 }
 
 #[inline]
@@ -50,50 +224,21 @@ pub fn get_cursor_pos() -> (i32, i32) {
 
 #[inline]
 pub fn move_mouse(x: i32, y: i32) {
-    unsafe { SetCursorPos(x, y) };
+    platform::move_mouse(x, y);
 }
 
 #[inline]
-pub fn make_input(flags: u32, time: u32) -> INPUT {
-    INPUT {
-        r#type: INPUT_MOUSE,
-        Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
-            mi: MOUSEINPUT {
-                dx: 0,
-                dy: 0,
-                mouseData: 0,
-                dwFlags: flags,
-                time,
-                dwExtraInfo: 0,
-            },
-        },
-    }
+pub fn send_mouse_event(event: MouseEventSpec, click_state: i64) {
+    platform::send_mouse_event(event, click_state);
 }
 
-#[inline]
-pub fn send_mouse_event(flags: u32) {
-    let input = make_input(flags, 0);
-    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
-}
-
-pub fn send_batch(down: u32, up: u32, n: usize, _hold_ms: u32) {
-    let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
-    for _ in 0..n {
-        inputs.push(make_input(down, 0));
-        inputs.push(make_input(up, 0));
-    }
-    unsafe {
-        SendInput(
-            inputs.len() as u32,
-            inputs.as_ptr(),
-            std::mem::size_of::<INPUT>() as i32,
-        )
-    };
+pub fn send_batch(down: MouseEventSpec, up: MouseEventSpec, n: usize, hold_ms: u32) {
+    platform::send_batch(down, up, n, hold_ms);
 }
 
 pub fn send_clicks(
-    down: u32,
-    up: u32,
+    down: MouseEventSpec,
+    up: MouseEventSpec,
     count: usize,
     hold_ms: u32,
     use_double_click_gap: bool,
@@ -114,11 +259,17 @@ pub fn send_clicks(
             return;
         }
 
-        send_mouse_event(down);
+        let click_state = if use_double_click_gap {
+            (index + 1) as i64
+        } else {
+            1
+        };
+
+        send_mouse_event(down, click_state);
         if hold_ms > 0 {
             sleep_interruptible(Duration::from_millis(hold_ms as u64), running);
         }
-        send_mouse_event(up);
+        send_mouse_event(up, click_state);
 
         if index + 1 < count && use_double_click_gap && double_click_delay_ms > 0 {
             sleep_interruptible(Duration::from_millis(double_click_delay_ms as u64), running);
@@ -127,11 +278,11 @@ pub fn send_clicks(
 }
 
 #[inline]
-pub fn get_button_flags(button: i32) -> (u32, u32) {
+pub fn get_button_flags(button: i32) -> (MouseEventSpec, MouseEventSpec) {
     match button {
-        2 => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
-        3 => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
-        _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        2 => (MouseEventSpec::RightDown, MouseEventSpec::RightUp),
+        3 => (MouseEventSpec::MiddleDown, MouseEventSpec::MiddleUp),
+        _ => (MouseEventSpec::LeftDown, MouseEventSpec::LeftUp),
     }
 }
 

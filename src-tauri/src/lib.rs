@@ -6,6 +6,7 @@ use crate::app_state::ClickerStatusPayload;
 mod engine;
 mod hotkeys;
 mod overlay;
+mod permissions;
 mod telemetry;
 mod ui_commands;
 mod updates;
@@ -15,7 +16,7 @@ use crate::hotkeys::start_hotkey_listener;
 use crate::telemetry::{send_settings_telemetry, TelemetryData};
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{Emitter, Manager};
 const STATUS_EVENT: &str = "clicker-status";
 
 fn migrate_old_config() {
@@ -31,6 +32,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ClickerState {
             running: Arc::new(AtomicBool::new(false)),
@@ -109,6 +111,8 @@ pub fn run() {
             ui_commands::set_hotkey_capture_active,
             ui_commands::pick_position,
             ui_commands::get_app_info,
+            ui_commands::request_accessibility_permission,
+            ui_commands::open_accessibility_settings,
             ui_commands::get_stats,
             ui_commands::reset_stats,
             updates::update_checker::check_for_updates,

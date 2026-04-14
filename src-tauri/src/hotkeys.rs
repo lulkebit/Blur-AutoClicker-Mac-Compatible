@@ -1,9 +1,7 @@
-use crate::AppHandle;
 use crate::ClickerState;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
-use tauri::Manager;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use crate::engine::worker::now_epoch_ms;
 use crate::engine::worker::start_clicker_inner;
@@ -16,12 +14,71 @@ pub struct HotkeyBinding {
     pub alt: bool,
     pub shift: bool,
     pub super_key: bool,
-    pub main_vk: i32,
+    pub main_code: Code,
     pub key_token: String,
 }
 
+impl HotkeyBinding {
+    pub fn shortcut(&self) -> Shortcut {
+        let mut modifiers = Modifiers::empty();
+
+        if self.ctrl {
+            modifiers |= Modifiers::CONTROL;
+        }
+        if self.alt {
+            modifiers |= Modifiers::ALT;
+        }
+        if self.shift {
+            modifiers |= Modifiers::SHIFT;
+        }
+        if self.super_key {
+            modifiers |= Modifiers::SUPER;
+        }
+
+        Shortcut::new(Some(modifiers), self.main_code)
+    }
+}
+
 pub fn register_hotkey_inner(app: &AppHandle, hotkey: String) -> Result<String, String> {
+    if hotkey.trim().is_empty() {
+        let previous = {
+            let state = app.state::<ClickerState>();
+            let previous = state.registered_hotkey.lock().unwrap().take();
+            previous
+        };
+
+        if let Some(previous) = previous {
+            let _ = app.global_shortcut().unregister(previous.shortcut());
+        }
+
+        let state = app.state::<ClickerState>();
+        state.suppress_hotkey_until_ms.store(0, Ordering::SeqCst);
+        state
+            .suppress_hotkey_until_release
+            .store(false, Ordering::SeqCst);
+        return Ok(String::new());
+    }
+
     let binding = parse_hotkey_binding(&hotkey)?;
+    let previous = {
+        let state = app.state::<ClickerState>();
+        let previous = state.registered_hotkey.lock().unwrap().clone();
+        previous
+    };
+
+    if previous.as_ref() != Some(&binding) {
+        if let Some(previous) = previous.as_ref() {
+            let _ = app.global_shortcut().unregister(previous.shortcut());
+        }
+
+        if let Err(error) = bind_shortcut(app, &binding) {
+            if let Some(previous) = previous.as_ref() {
+                let _ = bind_shortcut(app, previous);
+            }
+            return Err(error);
+        }
+    }
+
     let state = app.state::<ClickerState>();
     state
         .suppress_hotkey_until_ms
@@ -32,6 +89,49 @@ pub fn register_hotkey_inner(app: &AppHandle, hotkey: String) -> Result<String, 
     *state.registered_hotkey.lock().unwrap() = Some(binding.clone());
 
     Ok(format_hotkey_binding(&binding))
+}
+
+fn bind_shortcut(app: &AppHandle, binding: &HotkeyBinding) -> Result<(), String> {
+    app.global_shortcut()
+        .on_shortcut(binding.shortcut(), move |app_handle, _shortcut, event| {
+            handle_shortcut_event(app_handle, event.state);
+        })
+        .map_err(|e| e.to_string())
+}
+
+fn handle_shortcut_event(app: &AppHandle, event_state: ShortcutState) {
+    let state = app.state::<ClickerState>();
+
+    if matches!(event_state, ShortcutState::Released)
+        && state.suppress_hotkey_until_release.load(Ordering::SeqCst)
+    {
+        state
+            .suppress_hotkey_until_release
+            .store(false, Ordering::SeqCst);
+        return;
+    }
+
+    if state.hotkey_capture_active.load(Ordering::SeqCst) {
+        return;
+    }
+
+    match event_state {
+        ShortcutState::Pressed => {
+            if state.suppress_hotkey_until_release.load(Ordering::SeqCst) {
+                return;
+            }
+
+            let suppress_until = state.suppress_hotkey_until_ms.load(Ordering::SeqCst);
+            if now_epoch_ms() < suppress_until {
+                return;
+            }
+
+            handle_hotkey_pressed(app);
+        }
+        ShortcutState::Released => {
+            handle_hotkey_released(app);
+        }
+    }
 }
 
 pub fn normalize_hotkey(value: &str) -> String {
@@ -50,7 +150,7 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
     let mut alt = false;
     let mut shift = false;
     let mut super_key = false;
-    let mut main_key: Option<(i32, String)> = None;
+    let mut main_key: Option<(Code, String)> = None;
 
     for token in normalized.split('+').map(str::trim) {
         if token.is_empty() {
@@ -75,7 +175,7 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
         }
     }
 
-    let (main_vk, key_token) =
+    let (main_code, key_token) =
         main_key.ok_or_else(|| format!("Invalid hotkey '{hotkey}': missing main key"))?;
 
     Ok(HotkeyBinding {
@@ -83,44 +183,44 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
         alt,
         shift,
         super_key,
-        main_vk,
+        main_code,
         key_token,
     })
 }
 
-pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32, String), String> {
+pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(Code, String), String> {
     let lower = token.trim().to_lowercase();
 
     let mapped = match lower.as_str() {
         "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
-            Some((VK_OEM_102 as i32, String::from("IntlBackslash")))
+            Some((Code::IntlBackslash, String::from("IntlBackslash")))
         }
-        "space" | "spacebar" => Some((VK_SPACE as i32, String::from("space"))),
-        "tab" => Some((VK_TAB as i32, String::from("tab"))),
-        "enter" => Some((VK_RETURN as i32, String::from("enter"))),
-        "backspace" => Some((VK_BACK as i32, String::from("backspace"))),
-        "delete" => Some((VK_DELETE as i32, String::from("delete"))),
-        "insert" => Some((VK_INSERT as i32, String::from("insert"))),
-        "home" => Some((VK_HOME as i32, String::from("home"))),
-        "end" => Some((VK_END as i32, String::from("end"))),
-        "pageup" => Some((VK_PRIOR as i32, String::from("pageup"))),
-        "pagedown" => Some((VK_NEXT as i32, String::from("pagedown"))),
-        "up" => Some((VK_UP as i32, String::from("up"))),
-        "down" => Some((VK_DOWN as i32, String::from("down"))),
-        "left" => Some((VK_LEFT as i32, String::from("left"))),
-        "right" => Some((VK_RIGHT as i32, String::from("right"))),
-        "esc" | "escape" => Some((VK_ESCAPE as i32, String::from("escape"))),
-        "/" | "slash" => Some((VK_OEM_2 as i32, String::from("/"))),
-        "\\" | "backslash" => Some((VK_OEM_5 as i32, String::from("\\"))),
-        ";" | "semicolon" => Some((VK_OEM_1 as i32, String::from(";"))),
-        "'" | "quote" => Some((VK_OEM_7 as i32, String::from("'"))),
-        "[" | "bracketleft" => Some((VK_OEM_4 as i32, String::from("["))),
-        "]" | "bracketright" => Some((VK_OEM_6 as i32, String::from("]"))),
-        "-" | "minus" => Some((VK_OEM_MINUS as i32, String::from("-"))),
-        "=" | "equal" => Some((VK_OEM_PLUS as i32, String::from("="))),
-        "`" | "backquote" => Some((VK_OEM_3 as i32, String::from("`"))),
-        "," | "comma" => Some((VK_OEM_COMMA as i32, String::from(","))),
-        "." | "period" => Some((VK_OEM_PERIOD as i32, String::from("."))),
+        "space" | "spacebar" => Some((Code::Space, String::from("space"))),
+        "tab" => Some((Code::Tab, String::from("tab"))),
+        "enter" => Some((Code::Enter, String::from("enter"))),
+        "backspace" => Some((Code::Backspace, String::from("backspace"))),
+        "delete" => Some((Code::Delete, String::from("delete"))),
+        "insert" => Some((Code::Insert, String::from("insert"))),
+        "home" => Some((Code::Home, String::from("home"))),
+        "end" => Some((Code::End, String::from("end"))),
+        "pageup" => Some((Code::PageUp, String::from("pageup"))),
+        "pagedown" => Some((Code::PageDown, String::from("pagedown"))),
+        "up" => Some((Code::ArrowUp, String::from("up"))),
+        "down" => Some((Code::ArrowDown, String::from("down"))),
+        "left" => Some((Code::ArrowLeft, String::from("left"))),
+        "right" => Some((Code::ArrowRight, String::from("right"))),
+        "esc" | "escape" => Some((Code::Escape, String::from("escape"))),
+        "/" | "slash" => Some((Code::Slash, String::from("/"))),
+        "\\" | "backslash" => Some((Code::Backslash, String::from("\\"))),
+        ";" | "semicolon" => Some((Code::Semicolon, String::from(";"))),
+        "'" | "quote" => Some((Code::Quote, String::from("'"))),
+        "[" | "bracketleft" => Some((Code::BracketLeft, String::from("["))),
+        "]" | "bracketright" => Some((Code::BracketRight, String::from("]"))),
+        "-" | "minus" => Some((Code::Minus, String::from("-"))),
+        "=" | "equal" => Some((Code::Equal, String::from("="))),
+        "`" | "backquote" => Some((Code::Backquote, String::from("`"))),
+        "," | "comma" => Some((Code::Comma, String::from(","))),
+        "." | "period" => Some((Code::Period, String::from("."))),
         _ => None,
     };
 
@@ -129,13 +229,37 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32,
     }
 
     if lower.starts_with('f') && lower.len() <= 3 {
-        if let Ok(number) = lower[1..].parse::<i32>() {
-            let vk = match number {
-                1..=24 => VK_F1 as i32 + (number - 1),
-                _ => -1,
+        if let Ok(number) = lower[1..].parse::<u8>() {
+            let code = match number {
+                1 => Some(Code::F1),
+                2 => Some(Code::F2),
+                3 => Some(Code::F3),
+                4 => Some(Code::F4),
+                5 => Some(Code::F5),
+                6 => Some(Code::F6),
+                7 => Some(Code::F7),
+                8 => Some(Code::F8),
+                9 => Some(Code::F9),
+                10 => Some(Code::F10),
+                11 => Some(Code::F11),
+                12 => Some(Code::F12),
+                13 => Some(Code::F13),
+                14 => Some(Code::F14),
+                15 => Some(Code::F15),
+                16 => Some(Code::F16),
+                17 => Some(Code::F17),
+                18 => Some(Code::F18),
+                19 => Some(Code::F19),
+                20 => Some(Code::F20),
+                21 => Some(Code::F21),
+                22 => Some(Code::F22),
+                23 => Some(Code::F23),
+                24 => Some(Code::F24),
+                _ => None,
             };
-            if vk >= 0 {
-                return Ok((vk, lower));
+
+            if let Some(code) = code {
+                return Ok((code, lower));
             }
         }
     }
@@ -155,10 +279,53 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32,
     if lower.len() == 1 {
         let ch = lower.as_bytes()[0];
         if ch.is_ascii_lowercase() {
-            return Ok((ch.to_ascii_uppercase() as i32, lower));
+            let code = match ch {
+                b'a' => Code::KeyA,
+                b'b' => Code::KeyB,
+                b'c' => Code::KeyC,
+                b'd' => Code::KeyD,
+                b'e' => Code::KeyE,
+                b'f' => Code::KeyF,
+                b'g' => Code::KeyG,
+                b'h' => Code::KeyH,
+                b'i' => Code::KeyI,
+                b'j' => Code::KeyJ,
+                b'k' => Code::KeyK,
+                b'l' => Code::KeyL,
+                b'm' => Code::KeyM,
+                b'n' => Code::KeyN,
+                b'o' => Code::KeyO,
+                b'p' => Code::KeyP,
+                b'q' => Code::KeyQ,
+                b'r' => Code::KeyR,
+                b's' => Code::KeyS,
+                b't' => Code::KeyT,
+                b'u' => Code::KeyU,
+                b'v' => Code::KeyV,
+                b'w' => Code::KeyW,
+                b'x' => Code::KeyX,
+                b'y' => Code::KeyY,
+                b'z' => Code::KeyZ,
+                _ => unreachable!(),
+            };
+            return Ok((code, lower));
         }
+
         if ch.is_ascii_digit() {
-            return Ok((ch as i32, lower));
+            let code = match ch {
+                b'0' => Code::Digit0,
+                b'1' => Code::Digit1,
+                b'2' => Code::Digit2,
+                b'3' => Code::Digit3,
+                b'4' => Code::Digit4,
+                b'5' => Code::Digit5,
+                b'6' => Code::Digit6,
+                b'7' => Code::Digit7,
+                b'8' => Code::Digit8,
+                b'9' => Code::Digit9,
+                _ => unreachable!(),
+            };
+            return Ok((code, lower));
         }
     }
 
@@ -187,73 +354,7 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
     parts.join("+")
 }
 
-pub fn start_hotkey_listener(app: AppHandle) {
-    std::thread::spawn(move || {
-        let mut was_pressed = false;
-
-        loop {
-            let binding = {
-                let state = app.state::<ClickerState>();
-                let binding = state.registered_hotkey.lock().unwrap().clone();
-                binding
-            };
-
-            let currently_pressed = binding
-                .as_ref()
-                .map(is_hotkey_binding_pressed)
-                .unwrap_or(false);
-
-            let suppress_until = app
-                .state::<ClickerState>()
-                .suppress_hotkey_until_ms
-                .load(Ordering::SeqCst);
-            let suppress_until_release = app
-                .state::<ClickerState>()
-                .suppress_hotkey_until_release
-                .load(Ordering::SeqCst);
-            let hotkey_capture_active = app
-                .state::<ClickerState>()
-                .hotkey_capture_active
-                .load(Ordering::SeqCst);
-
-            if hotkey_capture_active {
-                was_pressed = currently_pressed;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
-            }
-
-            if suppress_until_release {
-                if currently_pressed {
-                    was_pressed = true;
-                    std::thread::sleep(Duration::from_millis(12));
-                    continue;
-                }
-
-                app.state::<ClickerState>()
-                    .suppress_hotkey_until_release
-                    .store(false, Ordering::SeqCst);
-                was_pressed = false;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
-            }
-
-            if now_epoch_ms() < suppress_until {
-                was_pressed = currently_pressed;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
-            }
-
-            if currently_pressed && !was_pressed {
-                handle_hotkey_pressed(&app);
-            } else if !currently_pressed && was_pressed {
-                handle_hotkey_released(&app);
-            }
-
-            was_pressed = currently_pressed;
-            std::thread::sleep(Duration::from_millis(12));
-        }
-    });
-}
+pub fn start_hotkey_listener(_app: AppHandle) {}
 
 pub fn handle_hotkey_pressed(app: &AppHandle) {
     let mode = {
@@ -279,25 +380,4 @@ pub fn handle_hotkey_released(app: &AppHandle) {
     if mode == "Hold" {
         let _ = stop_clicker_inner(app, Some(String::from("Stopped from hold hotkey")));
     }
-}
-
-pub fn is_hotkey_binding_pressed(binding: &HotkeyBinding) -> bool {
-    let ctrl_down = is_vk_down(VK_CONTROL as i32);
-    let alt_down = is_vk_down(VK_MENU as i32);
-    let shift_down = is_vk_down(VK_SHIFT as i32);
-    let super_down = is_vk_down(VK_LWIN as i32) || is_vk_down(VK_RWIN as i32);
-
-    if ctrl_down != binding.ctrl
-        || alt_down != binding.alt
-        || shift_down != binding.shift
-        || super_down != binding.super_key
-    {
-        return false;
-    }
-
-    is_vk_down(binding.main_vk)
-}
-
-pub fn is_vk_down(vk: i32) -> bool {
-    unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
 }

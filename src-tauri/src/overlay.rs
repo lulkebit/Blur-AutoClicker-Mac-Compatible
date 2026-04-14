@@ -2,7 +2,7 @@ use crate::app_state::ClickerState;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager};
 
 static LAST_ZONE_SHOW: Mutex<Option<Instant>> = Mutex::new(None);
 pub static OVERLAY_THREAD_RUNNING: std::sync::atomic::AtomicBool =
@@ -27,8 +27,11 @@ pub fn init_overlay(app: &AppHandle) -> Result<(), String> {
     window
         .set_ignore_cursor_events(true)
         .map_err(|e| e.to_string())?;
-    let _ = window.set_fullscreen(true);
     let _ = window.set_decorations(false);
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_skip_taskbar(true);
+    let _ = window.set_visible_on_all_workspaces(true);
+    let _ = sync_overlay_to_primary_monitor(app, &window);
 
     #[cfg(target_os = "windows")]
     apply_win32_styles(&window)?;
@@ -53,6 +56,8 @@ pub fn show_overlay(app: &AppHandle) -> Result<(), String> {
         .get_webview_window("overlay")
         .ok_or_else(|| "Overlay window not found".to_string())?;
 
+    let (sw, sh) = sync_overlay_to_primary_monitor(app, &window)?;
+
     #[cfg(target_os = "windows")]
     {
         let visible = window.is_visible().unwrap_or(false);
@@ -61,18 +66,12 @@ pub fn show_overlay(app: &AppHandle) -> Result<(), String> {
             unsafe { ShowWindow(hwnd, 4) };
         }
     }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window.show();
+    }
 
     *LAST_ZONE_SHOW.lock().unwrap() = Some(Instant::now());
-
-    // Get screen dimensions
-    let monitor = app
-        .primary_monitor()
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "No primary monitor found".to_string())?;
-
-    let scale = monitor.scale_factor(); // Adjust for display scaling
-    let sw = (monitor.size().width as f64 / scale) as u32;
-    let sh = (monitor.size().height as f64 / scale) as u32;
 
     let settings = state.settings.lock().unwrap();
     let _ = window.emit(
@@ -115,6 +114,8 @@ pub fn check_auto_hide(app: &AppHandle) {
                         unsafe { ShowWindow(hwnd, 0) };
                     }
                 }
+                #[cfg(not(target_os = "windows"))]
+                let _ = window.hide();
             }
         }
     }
@@ -134,6 +135,34 @@ pub fn hide_overlay(app: AppHandle) -> Result<(), String> {
         let _ = window.hide();
     }
     Ok(())
+}
+
+fn sync_overlay_to_primary_monitor(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+) -> Result<(u32, u32), String> {
+    let monitor = app
+        .primary_monitor()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "No primary monitor found".to_string())?;
+
+    let scale = monitor.scale_factor();
+    let size = monitor.size();
+    let position = monitor.position();
+
+    let logical_width = size.width as f64 / scale;
+    let logical_height = size.height as f64 / scale;
+    let logical_x = position.x as f64 / scale;
+    let logical_y = position.y as f64 / scale;
+
+    window
+        .set_size(LogicalSize::new(logical_width, logical_height))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_position(LogicalPosition::new(logical_x, logical_y))
+        .map_err(|e| e.to_string())?;
+
+    Ok((logical_width.round() as u32, logical_height.round() as u32))
 }
 
 #[cfg(target_os = "windows")]
