@@ -112,19 +112,13 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32,
         "mousemiddle" | "mouse3" | "scrollbutton" | "middleclick" => {
             Some((VK_MBUTTON as i32, String::from("mousemiddle")))
         }
-        "mouse4" | "mouseback" | "xbutton1" => {
-            Some((VK_XBUTTON1 as i32, String::from("mouse4")))
-        }
+        "mouse4" | "mouseback" | "xbutton1" => Some((VK_XBUTTON1 as i32, String::from("mouse4"))),
         "mouse5" | "mouseforward" | "xbutton2" => {
             Some((VK_XBUTTON2 as i32, String::from("mouse5")))
         }
         // ── Scroll wheel (pseudo-VKs) ──────────────────────────────
-        "scrollup" | "wheelup" => {
-            Some((VK_SCROLL_UP_PSEUDO, String::from("scrollup")))
-        }
-        "scrolldown" | "wheeldown" => {
-            Some((VK_SCROLL_DOWN_PSEUDO, String::from("scrolldown")))
-        }
+        "scrollup" | "wheelup" => Some((VK_SCROLL_UP_PSEUDO, String::from("scrollup"))),
+        "scrolldown" | "wheeldown" => Some((VK_SCROLL_DOWN_PSEUDO, String::from("scrolldown"))),
         // ── Keyboard keys (original) ───────────────────────────────
         "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
             Some((VK_OEM_102 as i32, String::from("IntlBackslash")))
@@ -382,13 +376,10 @@ pub fn start_scroll_hook() {
 }
 
 /// Raw low-level mouse-hook callback.  We only care about `WM_MOUSEWHEEL`.
-unsafe extern "system" fn mouse_hook_proc(
-    code: i32,
-    w_param: usize,
-    l_param: isize,
-) -> isize {
+unsafe extern "system" fn mouse_hook_proc(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 && w_param == WM_MOUSEWHEEL as usize {
         // lParam -> pointer to MSLLHOOKSTRUCT; mouseData high word = wheel delta
+        #[allow(clippy::upper_case_acronyms)]
         #[repr(C)]
         struct MSLLHOOKSTRUCT {
             pt_x: i32,
