@@ -1,4 +1,6 @@
 use crate::app_state::ClickerState;
+#[cfg(target_os = "windows")]
+use crate::engine::mouse::VirtualScreenRect;
 use crate::engine::mouse::{current_monitor_rects, current_virtual_screen_rect};
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
