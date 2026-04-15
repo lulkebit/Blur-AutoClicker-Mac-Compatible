@@ -156,7 +156,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="faderbox">
             <HotkeyCaptureInput
               className="simple-hotkey-input"
-              style={{ width: isShortHotkey ? "80px" : "120px" }}
+              style={{ width: isShortHotkey ? "90px" : "130px" }}
               value={settings.hotkey}
               onChange={(hotkey) => update({ hotkey })}
             />
