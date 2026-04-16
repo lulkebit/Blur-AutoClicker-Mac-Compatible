@@ -254,6 +254,26 @@ export default function SettingsPanel({
           </div>
         </div>
 
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-sublabel">
+              On: hotkey only fires when modifier keys match exactly. Off: extra held modifiers (e.g. Shift while gaming) are ignored.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.strictHotkeyModifiers ? "On" : "Off") === o ? "active" : ""}`}
+                onClick={() => update({ strictHotkeyModifiers: o === "On" })}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">

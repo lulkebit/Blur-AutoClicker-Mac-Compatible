@@ -1,21 +1,21 @@
 .settings-panel {
   display: flex;
   flex-direction: column;
-  padding: 4px 20px;
+  padding: 0.25rem 1.25rem;
   height: 100%;
   overflow-y: auto;
 }
 
 .settings-panel::-webkit-scrollbar {
-  width: 6px;
+  width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 
 .settings-panel::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 .settings-panel::-webkit-scrollbar-thumb:hover {
   background: #777;
@@ -25,9 +25,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  padding: 12px 0;
+  padding: 0.75rem 0;
 }
 
 .settings-divider {
@@ -38,8 +38,8 @@
 }
 
 .settings-label {
-  font-family: var(--font-family-base);
-  font-size: 16px;
+  font-family: 'DMSans', sans-serif;
+  font-size: 1rem;
   font-weight: var(--font-weight-md);
   letter-spacing: -0.02em;
   color: var(--text-primary);
@@ -54,15 +54,15 @@
 }
 
 .settings-sublabel {
-  font-family: var(--font-family-base);
-  font-size: 12px;
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
   font-weight: var(--font-weight-li);
   color: var(--text-muted);
 }
 
 .settings-value {
-  font-family: var(--font-family-base);
-  font-size: 14px;
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.875rem;
   font-weight: var(--font-weight-md);
   color: var(--text-muted);
 }
@@ -82,10 +82,10 @@
 }
 
 .settings-seg-btn {
-  font-family: var(--font-family-base);
-  font-size: 14px;
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.875rem;
   font-weight: var(--font-weight-md);
-  padding: 5px 12px;
+  padding: 0.3125rem 0.75rem;
   background: transparent;
   border: none;
   color: var(--text-dim);
@@ -109,10 +109,10 @@
 }
 
 .settings-btn-danger {
-  font-family: var(--font-family-base);
-  font-size: 14px;
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.875rem;
   font-weight: var(--font-weight-md);
-  padding: 5px 14px;
+  padding: 0.3125rem 0.875rem;
   background: transparent;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -156,20 +156,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 0.625rem 0;
 }
 
 .social-icons {
   display: flex;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .social-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   background: transparent;
@@ -228,13 +228,13 @@
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  padding: 8px 0;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0;
 }
 
 .stats-grid--compact {
-  gap: 4px 16px;
-  padding: 4px 0 8px;
+  gap: 0.25rem 1rem;
+  padding: 0.25rem 0 0.5rem;
 }
 
 .stats-cell {
@@ -244,7 +244,7 @@
 }
 
 .stats-cell-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: var(--font-weight-md);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -252,25 +252,25 @@
 }
 
 .stats-cell-value {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: var(--font-weight-md);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .stats-section-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-dim);
-  padding: 8px 0 4px;
+  padding: 0.5rem 0 0.25rem;
   border-top: 1px solid var(--border-subtle);
-  margin-top: 4px;
+  margin-top: 0.25rem;
 }
 
 .stats-empty {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-dim);
-  padding: 12px 0;
+  padding: 0.75rem 0;
   text-align: center;
 }
