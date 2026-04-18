@@ -10,7 +10,10 @@ import {
   type FocusEvent,
   type ReactNode,
 } from "react";
-import { getMaxDoubleClickDelayMs } from "../../cadence";
+import {
+  getEffectiveClicksPerSecond,
+  getMaxDoubleClickDelayMs,
+} from "../../cadence";
 import { normalizeIntegerRaw } from "../../numberInput";
 import type { SequencePoint, Settings } from "../../store";
 import { useTranslation, type TranslationKey } from "../../i18n";
@@ -21,6 +24,7 @@ import {
   TIME_LIMIT_UNIT_OPTIONS,
 } from "../../settingsSchema";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
+import UnavailableReason from "../UnavailableReason";
 
 interface Props {
   settings: Settings;
@@ -39,10 +43,12 @@ function ToggleBtn({
   value,
   onChange,
   disabled = false,
+  disabledReason,
 }: {
   value: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   const { t } = useTranslation();
 
@@ -52,7 +58,7 @@ function ToggleBtn({
     }
   }, [disabled, value, onChange]);
 
-  return (
+  const group = (
     <div className="adv-toggle-group">
       <button
         className={`adv-toggle-btn ${!value ? "active" : ""} ${disabled ? "disabled" : ""}`}
@@ -70,18 +76,26 @@ function ToggleBtn({
       </button>
     </div>
   );
+
+  return disabled ? (
+    <UnavailableReason reason={disabledReason}>{group}</UnavailableReason>
+  ) : (
+    group
+  );
 }
 
 function Disableable({
   enabled,
+  disabledReason,
   children,
 }: {
   enabled: boolean;
+  disabledReason?: string;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
 
-  return (
+  const content = (
     <div className="disabled-container">
       <div className={enabled ? "" : "disabled-content"}>{children}</div>
       {!enabled && (
@@ -90,6 +104,17 @@ function Disableable({
         </div>
       )}
     </div>
+  );
+
+  return enabled ? (
+    content
+  ) : (
+    <UnavailableReason
+      reason={disabledReason}
+      className="unavailable-reason--block"
+    >
+      {content}
+    </UnavailableReason>
   );
 }
 
@@ -191,6 +216,19 @@ const EDGE_KEYS = {
   bottom: "edgeStopBottom",
 } as const;
 
+function formatClicksPerSecond(value: number): string {
+  if (value >= 10) {
+    return value.toFixed(value % 1 === 0 ? 0 : 1);
+  }
+
+  if (value >= 1) {
+    return value.toFixed(2).replace(/\.?0+$/, "");
+  }
+
+  return value.toFixed(3).replace(/\.?0+$/, "");
+}
+
+
 export default function AdvancedPanelLayout({
   settings,
   update,
@@ -242,6 +280,28 @@ export default function AdvancedPanelLayout({
 
   const showDesc = (key: TranslationKey) =>
     showExplanations ? <p className="adv-desc">{t(key)}</p> : null;
+  const currentClicksPerSecond = getEffectiveClicksPerSecond({
+    clickInterval,
+    clickSpeed,
+    rateInputMode,
+    durationMinutes,
+    durationSeconds,
+    durationMilliseconds,
+  });
+  const doubleClickDisabled = getMaxDoubleClickDelayMs(settings) <= 20;
+  const doubleClickDisabledReason = doubleClickDisabled
+    ? t("advanced.doubleClickUnavailable", { cps: formatClicksPerSecond(currentClicksPerSecond) })
+    : undefined;
+  const pickPositionDisabledReason = pickingPosition
+    ? pickCountdown
+      ? t(
+          pickCountdown === 1
+            ? "advanced.pickCountdownSingularUnavailable"
+            : "advanced.pickCountdownUnavailable",
+          { seconds: pickCountdown },
+        )
+      : t("advanced.pickInProgressUnavailable")
+    : undefined;
 
   const requestCursorPosition = async (): Promise<CursorPoint> => {
     setCapturingCursor(true);
@@ -446,7 +506,10 @@ export default function AdvancedPanelLayout({
               <div className="adv-card-header">
                 <span className="adv-card-title">{t("advanced.speedVariation")}</span>
                 <div className="adv-row" style={{ gap: 8 }}>
-                  <Disableable enabled={settings.speedVariationEnabled}>
+                  <Disableable
+                    enabled={settings.speedVariationEnabled}
+                    disabledReason={t("advanced.speedVariationUnavailable")}
+                  >
                     <div className="adv-numbox-sm">
                       <NumInput
                         value={settings.speedVariation}
@@ -463,7 +526,10 @@ export default function AdvancedPanelLayout({
                   />
                 </div>
               </div>
-              <Disableable enabled={settings.speedVariationEnabled}>
+              <Disableable
+                enabled={settings.speedVariationEnabled}
+                disabledReason={t("advanced.speedVariationUnavailable")}
+              >
                 {showDesc("advanced.speedVariationDescription")}
               </Disableable>
             </div>
@@ -486,11 +552,15 @@ export default function AdvancedPanelLayout({
                   <ToggleBtn
                     value={settings.doubleClickEnabled}
                     onChange={(v) => update({ doubleClickEnabled: v })}
-                    disabled={getMaxDoubleClickDelayMs(settings) <= 20}
+                    disabled={doubleClickDisabled}
+                    disabledReason={doubleClickDisabledReason}
                   />
                 </div>
               </div>
-              <Disableable enabled={settings.doubleClickEnabled}>
+              <Disableable
+                enabled={settings.doubleClickEnabled}
+                disabledReason={t("advanced.doubleClickContentUnavailable")}
+              >
                 {showDesc("advanced.doubleClickDescription")}
               </Disableable>
             </div>
@@ -540,7 +610,10 @@ export default function AdvancedPanelLayout({
               >
                 <span className="adv-card-title">{t("advanced.clickLimit")}</span>
                 <div className="adv-row" style={{ gap: 6 }}>
-                  <Disableable enabled={settings.clickLimitEnabled}>
+                  <Disableable
+                    enabled={settings.clickLimitEnabled}
+                    disabledReason={t("advanced.clickLimitUnavailable")}
+                  >
                     <div className="adv-numbox-sm">
                       <NumInput
                         value={settings.clickLimit}
@@ -564,7 +637,10 @@ export default function AdvancedPanelLayout({
               >
                 <span className="adv-card-title">{t("advanced.timeLimit")}</span>
                 <div className="adv-row" style={{ gap: 6 }}>
-                  <Disableable enabled={settings.timeLimitEnabled}>
+                  <Disableable
+                    enabled={settings.timeLimitEnabled}
+                    disabledReason={t("advanced.timeLimitUnavailable")}
+                  >
                     <div className="adv-row" style={{ gap: 6 }}>
                       <div className="adv-numbox-sm">
                         <NumInput
@@ -606,7 +682,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.cornerStopEnabled}>
+              <Disableable
+                enabled={settings.cornerStopEnabled}
+                disabledReason={t("advanced.cornerStopUnavailable")}
+              >
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc">
@@ -645,7 +724,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.edgeStopEnabled}>
+              <Disableable
+                enabled={settings.edgeStopEnabled}
+                disabledReason={t("advanced.edgeStopUnavailable")}
+              >
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc">
@@ -687,7 +769,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.positionEnabled}>
+              <Disableable
+                enabled={settings.positionEnabled}
+                disabledReason={t("advanced.positionUnavailable")}
+              >
                 <div className="adv-row" style={{ marginTop: 8, gap: 6 }}>
                   {showExplanations && (
                     <p className="adv-desc">
@@ -744,17 +829,19 @@ export default function AdvancedPanelLayout({
                         />
                       </div>
                     </div>
-                    <button
-                      className="adv-pick-btn"
-                      onClick={handlePickPosition}
-                      disabled={pickingPosition}
-                    >
-                      {pickCountdown
-                        ? t("advanced.pickingIn", { seconds: pickCountdown })
-                        : pickingPosition
-                          ? t("advanced.picking")
-                          : t("advanced.pick")}
-                    </button>
+                    <UnavailableReason reason={pickPositionDisabledReason}>
+                      <button
+                        className="adv-pick-btn"
+                        onClick={handlePickPosition}
+                        disabled={pickingPosition}
+                      >
+                        {pickCountdown
+                          ? t("advanced.pickingIn", { seconds: pickCountdown })
+                          : pickingPosition
+                            ? t("advanced.picking")
+                            : t("advanced.pick")}
+                      </button>
+                    </UnavailableReason>
                   </div>
                 </div>
               </Disableable>
@@ -895,10 +982,14 @@ export default function AdvancedPanelLayout({
                 <ToggleBtn
                   value={settings.doubleClickEnabled}
                   onChange={(v) => update({ doubleClickEnabled: v })}
-                  disabled={getMaxDoubleClickDelayMs(settings) <= 20}
+                  disabled={doubleClickDisabled}
+                  disabledReason={doubleClickDisabledReason}
                 />
               </div>
-              <Disableable enabled={settings.doubleClickEnabled}>
+              <Disableable
+                enabled={settings.doubleClickEnabled}
+                disabledReason={t("advanced.doubleClickContentUnavailable")}
+              >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
                     <div className="adv-numbox-sm">
@@ -933,7 +1024,10 @@ export default function AdvancedPanelLayout({
               />
             </div>
             <CardDivider />
-            <Disableable enabled={settings.positionEnabled}>
+            <Disableable
+              enabled={settings.positionEnabled}
+              disabledReason={t("advanced.positionUnavailable")}
+            >
               <div className={featureBodyClass}>
                 <div className="adv-inline-controls adv-inline-controls-start adv-position-inline">
                   <div
@@ -960,17 +1054,19 @@ export default function AdvancedPanelLayout({
                       style={{ width: "32px" }}
                     />
                   </div>
-                  <button
-                    className="adv-pick-btn adv-pick-btn-inline"
-                    onClick={handlePickPosition}
-                    disabled={pickingPosition}
-                  >
-                    {pickCountdown
-                      ? t("advanced.pickingIn", { seconds: pickCountdown })
-                      : pickingPosition
-                        ? t("advanced.picking")
-                        : t("advanced.pick")}
-                  </button>
+                  <UnavailableReason reason={pickPositionDisabledReason}>
+                    <button
+                      className="adv-pick-btn adv-pick-btn-inline"
+                      onClick={handlePickPosition}
+                      disabled={pickingPosition}
+                    >
+                      {pickCountdown
+                        ? t("advanced.pickingIn", { seconds: pickCountdown })
+                        : pickingPosition
+                          ? t("advanced.picking")
+                          : t("advanced.pick")}
+                    </button>
+                  </UnavailableReason>
                 </div>
               </div>
             </Disableable>
@@ -1080,7 +1176,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.clickLimitEnabled}>
+              <Disableable
+                enabled={settings.clickLimitEnabled}
+                disabledReason={t("advanced.clickLimitUnavailable")}
+              >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start adv-limit-inputs">
                     <div className="adv-numbox-sm">
@@ -1107,7 +1206,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.timeLimitEnabled}>
+              <Disableable
+                enabled={settings.timeLimitEnabled}
+                disabledReason={t("advanced.timeLimitUnavailable")}
+              >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start adv-limit-inputs">
                     <div className="adv-numbox-sm">
@@ -1143,7 +1245,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.dutyCycleEnabled}>
+              <Disableable
+                enabled={settings.dutyCycleEnabled}
+                disabledReason={t("advanced.dutyCycleUnavailable")}
+              >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
                     <div className="adv-minmax">
@@ -1173,7 +1278,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.speedVariationEnabled}>
+              <Disableable
+                enabled={settings.speedVariationEnabled}
+                disabledReason={t("advanced.speedVariationUnavailable")}
+              >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
                     <div className="adv-numbox-sm">
@@ -1201,7 +1309,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.cornerStopEnabled}>
+              <Disableable
+                enabled={settings.cornerStopEnabled}
+                disabledReason={t("advanced.cornerStopUnavailable")}
+              >
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">
                     {(["tl", "tr", "bl", "br"] as const).map((cornerKey) => (
@@ -1235,7 +1346,10 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.edgeStopEnabled}>
+              <Disableable
+                enabled={settings.edgeStopEnabled}
+                disabledReason={t("advanced.edgeStopUnavailable")}
+              >
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">
                     {(["top", "right", "left", "bottom"] as const).map((edgeSide) => (
