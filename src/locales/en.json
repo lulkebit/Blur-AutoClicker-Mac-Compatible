@@ -143,7 +143,6 @@
     "sequenceMoveDown": "Down",
     "sequenceDelete": "Delete",
     "sequenceAddCurrentCursor": "Add Current Cursor",
-    "sequenceEndOfList": "That's all fields :)",
     "customStopZone": "Custom Stop Zone",
     "customStopZoneDescription": "Stops the clicker when the cursor enters this rectangular area, using absolute screen coordinates that can span multiple monitors.",
     "customStopZoneSetTopLeft": "Set Top-Left",

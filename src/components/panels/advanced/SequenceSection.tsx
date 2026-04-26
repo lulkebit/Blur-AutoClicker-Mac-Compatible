@@ -125,7 +125,6 @@ export default function SequenceSection({
   const addCurrentCursorToSequence = async () => {
     const point = await requestCursorPosition();
     update({
-      positionEnabled: false,
       sequenceEnabled: true,
       sequencePoints: [
         ...settings.sequencePoints,
@@ -336,8 +335,7 @@ export default function SequenceSection({
           value={settings.sequenceEnabled}
           onChange={(v) =>
             update({
-              sequenceEnabled: v,
-              positionEnabled: v ? false : settings.positionEnabled,
+              sequenceEnabled: v
             })
           }
         />
@@ -415,8 +413,8 @@ export default function SequenceSection({
                             }}
                           >
                             <svg
-                              width="12"
-                              height="12"
+                              width="16"
+                              height="16"
                               viewBox="0 0 12 12"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -474,8 +472,8 @@ export default function SequenceSection({
                             title={t("advanced.sequenceDelete")}
                           >
                             <svg
-                              width="12"
-                              height="12"
+                              width="16"
+                              height="16"
                               viewBox="0 0 12 12"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -496,11 +494,6 @@ export default function SequenceSection({
                     },
                   )
                 )}
-                {hasScrollableContent && settings.sequencePoints.length > 0 ? (
-                  <div className="adv-sequence-list-endcap">
-                    {t("advanced.sequenceEndOfList")}
-                  </div>
-                ) : null}
               </div>
               {showBottomFade ? <div className="adv-sequence-list-fade" /> : null}
             </div>
