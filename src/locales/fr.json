@@ -61,8 +61,6 @@
     "minimizeToTrayDescription": "Lorsque l'option est activée, fermer la fenêtre la cache dans la zone de notification au lieu de quitter.",
     "runOnStartup": "Lancer au démarrage",
     "runOnStartupDescription": "Lance BlurAutoClicker avec Windows, réduit dans la zone de notification.",
-    "sectionLanguage": "Langue",
-    "sectionLanguageDescription": "Langue d'affichage et direction du texte.",
     "sectionAppearance": "Apparence",
     "sectionAppearanceDescription": "Préférences de thème et de couleur d'accent.",
     "theme": "Thème",

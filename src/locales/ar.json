@@ -61,8 +61,6 @@
     "minimizeToTrayDescription": "عند التفعيل، يؤدي إغلاق النافذة إلى إخفائها في شريط النظام بدلاً من إنهاء التطبيق.",
     "runOnStartup": "التشغيل عند بدء التشغيل",
     "runOnStartupDescription": "بدء تشغيل BlurAutoClicker تلقائياً مع Windows، مصغراً إلى شريط المهام.",
-    "sectionLanguage": "اللغة",
-    "sectionLanguageDescription": "لغة العرض واتجاه النص.",
     "sectionAppearance": "المظهر",
     "sectionAppearanceDescription": "تفضيلات السمة ولون التمييز.",
     "theme": "السمة",

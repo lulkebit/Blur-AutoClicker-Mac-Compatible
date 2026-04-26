@@ -318,6 +318,7 @@ export function AdvDropdown({
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const toggle = () => {
     setOpen((prev) => !prev);
@@ -346,7 +347,13 @@ export function AdvDropdown({
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        ref.current &&
+        !ref.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -379,6 +386,7 @@ export function AdvDropdown({
       {open &&
         createPortal(
           <div
+            ref={menuRef}
             className="adv-dropdown-menu adv-dropdown-menu--portal"
             style={{
               position: "fixed",

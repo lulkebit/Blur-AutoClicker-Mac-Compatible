@@ -61,8 +61,6 @@
     "minimizeToTrayDescription": "Si está activado, al cerrar la ventana se oculta en la bandeja del sistema en lugar de salir.",
     "runOnStartup": "Ejecutar al iniciar",
     "runOnStartupDescription": "Inicia BlurAutoClicker con Windows, minimizado en la bandeja.",
-    "sectionLanguage": "Idioma",
-    "sectionLanguageDescription": "Idioma de visualización y dirección del texto.",
     "sectionAppearance": "Apariencia",
     "sectionAppearanceDescription": "Preferencias de tema y color de acento.",
     "theme": "Tema",

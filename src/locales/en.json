@@ -60,8 +60,6 @@
     "minimizeToTrayDescription": "When enabled, closing the window hides it to the system tray instead of quitting.",
     "runOnStartup": "Run on Startup",
     "runOnStartupDescription": "Automatically start BlurAutoClicker with Windows, minimized to tray.",
-    "sectionLanguage": "Language",
-    "sectionLanguageDescription": "Display language and text direction.",
     "sectionAppearance": "Appearance",
     "sectionAppearanceDescription": "Theme and accent color preferences.",
     "theme": "Theme",

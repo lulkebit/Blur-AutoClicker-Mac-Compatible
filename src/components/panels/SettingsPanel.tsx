@@ -1,5 +1,4 @@
 import "./SettingsPanel.css";
-import "./advanced/AdvancedPanel.css";
 import type {
   AppInfo,
   PresetDefinition,
@@ -17,20 +16,20 @@ import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
 import { AdvDropdown } from "./advanced/shared";
-
-// Settings Pannel TO-DO
-// TODO: Move presets under stats
-// TODO: Make presets only display 3 profiles at a time before turning into a scrollable area. Otherwise the settings window would infinitly expand downwards.
-// TODO: Change On/Off toggle to be the same as in advanced mode. Preferably we think about some kind of shared assets css instead of re-defining it every time.
-// TODO: Make Accent color actually be only accents say on hover and such.. "save new" should not be an accent.
-// Preferably all before 3.5 comes out.
-
-type PendingAction = "reset-settings" | "clear-stats" | null;
 import {
   DEFAULT_ACCENT_COLOR,
   MAX_PRESETS,
   PRESET_NAME_MAX_LENGTH,
 } from "../../settingsSchema";
+
+// Settings Panel TO-DO
+// TODO: Move presets under stats
+// TODO: Make presets only display 3 profiles at a time before turning into a scrollable area. Otherwise the settings window would infinitely expand downwards.
+// TODO: Change On/Off toggle to be the same as in advanced mode. Preferably we think about some kind of shared assets css instead of re-defining it every time.
+// TODO: Make Accent color actually be only accents say on hover and such.. "save new" should not be an accent.
+// Preferably all before 3.5 comes out.
+
+type PendingAction = "reset-settings" | "clear-stats" | null;
 
 const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
   value: option.code,
@@ -705,11 +704,6 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-divider" />
-
-        <SettingsSectionHeading
-          title={t("settings.sectionLanguage")}
-          description={t("settings.sectionLanguageDescription")}
-        />
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">{t("settings.language")}</span>
@@ -717,19 +711,15 @@ export default function SettingsPanel({
               {t("settings.languageDescription")}
             </span>
           </div>
-          <div className="adv-value-outline settings-language-outline">
-            <div className="adv-foc adv-foc-grow">
-              <AdvDropdown
-                value={settings.language}
-                options={LANGUAGE_DROPDOWN_OPTIONS}
-                onChange={(next) => {
-                  if (isLanguage(next)) {
-                    update({ language: next });
-                  }
-                }}
-              />
-            </div>
-          </div>
+          <AdvDropdown
+            value={settings.language}
+            options={LANGUAGE_DROPDOWN_OPTIONS}
+            onChange={(next) => {
+              if (isLanguage(next)) {
+                update({ language: next });
+              }
+            }}
+          />
         </div>
 
         <div className="settings-divider" />

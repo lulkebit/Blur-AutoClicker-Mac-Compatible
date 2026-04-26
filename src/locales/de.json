@@ -61,8 +61,6 @@
     "minimizeToTrayDescription": "Wenn aktiviert, wird das Fenster beim Schließen in den System Tray minimiert, anstatt die App zu beenden.",
     "runOnStartup": "Beim Start ausführen",
     "runOnStartupDescription": "Startet BlurAutoClicker automatisch mit Windows, im System Tray minimiert.",
-    "sectionLanguage": "Sprache",
-    "sectionLanguageDescription": "Anzeigesprache und Textrichtung.",
     "sectionAppearance": "Erscheinungsbild",
     "sectionAppearanceDescription": "Design- und Akzentfarben-Einstellungen.",
     "theme": "Design",
