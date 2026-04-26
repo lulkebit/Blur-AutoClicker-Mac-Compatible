@@ -42,6 +42,12 @@ fn thread_cycles() -> u64 {
     cycles
 }
 
+impl ClickerConfig {
+    pub fn use_sequence(&self) -> bool {
+        self.sequence_enabled && !self.sequence_points.is_empty()
+    }
+}
+
 // Calibrates the CPU cycle frequency
 fn calibrate_cycle_freq() -> f64 {
     let start_cycles = thread_cycles();
@@ -106,10 +112,8 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
 
     let settings = state.settings.lock().unwrap().clone();
     let config = build_config(&settings)?;
-    if config.sequence_enabled && !config.sequence_points.is_empty() {
+    if config.use_sequence() {
         state.active_sequence_index.store(0, Ordering::SeqCst);
-    } else {
-        state.active_sequence_index.store(-1, Ordering::SeqCst);
     }
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
     state.running.store(true, Ordering::SeqCst);
@@ -118,6 +122,10 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
 
     std::thread::spawn(move || {
         let outcome = engine_start(config, control.clone());
+
+        print_run_stats(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
+        record_run(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
+
         if !control.is_current_generation() {
             return;
         }
@@ -125,10 +133,6 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
         let state = app_handle.state::<ClickerState>();
         state.running.store(false, Ordering::SeqCst);
         state.active_sequence_index.store(-1, Ordering::SeqCst);
-
-        print_run_stats(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
-
-        record_run(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
 
         *state.stop_reason.lock().unwrap() = Some(outcome.stop_reason.clone());
         *state.last_error.lock().unwrap() = None;
@@ -181,15 +185,12 @@ fn interval_secs_from_settings(settings: &ClickerSettings) -> Result<f64, String
 }
 
 fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {
-    if config.sequence_enabled && !config.sequence_points.is_empty() {
+    if config.use_sequence() {
         let safe_index = sequence_index % config.sequence_points.len();
         config.sequence_points[safe_index]
     } else {
-        SequenceTarget {
-            x: config.pos_x,
-            y: config.pos_y,
-            clicks: 1,
-        }
+        let (x, y) = get_cursor_pos();
+        SequenceTarget { x, y, clicks: 1 }
     }
 }
 
@@ -212,12 +213,6 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         None
     };
 
-    if settings.sequence_enabled && settings.sequence_points.is_empty() {
-        return Err(String::from(
-            "Add at least one sequence point before starting sequence clicking",
-        ));
-    }
-
     Ok(ClickerConfig {
         interval_secs: base_interval_secs,
         variation: if settings.speed_variation_enabled {
@@ -239,9 +234,6 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         button,
         double_click_enabled: settings.double_click_enabled,
         double_click_delay_ms: settings.double_click_delay,
-        position_enabled: settings.position_enabled,
-        pos_x: settings.position_x,
-        pos_y: settings.position_y,
         sequence_enabled: settings.sequence_enabled,
         sequence_points: settings
             .sequence_points
@@ -341,21 +333,27 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     };
 
     let batch_interval = config.interval_secs * batch_size as f64;
-    let has_position = config.position_enabled || config.sequence_enabled;
+    let has_position = config.sequence_enabled;
     let use_smoothing = config.smoothing == 1 && cps < 50.0;
 
     let mut sequence_index = 0usize;
     let mut cycle_target = current_cycle_target(&config, sequence_index);
     let mut sequence_clicks_remaining = cycle_target.clicks.max(1);
-    let (mut target_x, mut target_y) = (cycle_target.x, cycle_target.y);
+    let (mut target_x, mut target_y) = if has_position {
+        (cycle_target.x, cycle_target.y)
+    } else {
+        get_cursor_pos()
+    };
     let mut next_batch_time = Instant::now();
     let mut stop_reason = String::from("Stopped");
+
+    println!("Clicking at: {}, {}", target_x, target_y);
 
     if has_position {
         move_mouse(target_x, target_y);
     }
 
-    if config.sequence_enabled && !config.sequence_points.is_empty() {
+    if config.use_sequence() {
         let state = control.app.state::<ClickerState>();
         state
             .active_sequence_index
@@ -414,8 +412,9 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             }
         }
 
-        let per_tick_clicks = batch_size.saturating_mul(if config.double_click_enabled { 2 } else { 1 });
-        let requested_clicks = if config.sequence_enabled && !config.sequence_points.is_empty() {
+        let per_tick_clicks =
+            batch_size.saturating_mul(if config.double_click_enabled { 2 } else { 1 });
+        let requested_clicks = if config.use_sequence() {
             sequence_clicks_remaining.min(per_tick_clicks)
         } else {
             per_tick_clicks
@@ -465,7 +464,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             sleep_interruptible(remaining, &control);
         }
 
-        if config.sequence_enabled && !config.sequence_points.is_empty() {
+        if config.use_sequence() {
             sequence_clicks_remaining = sequence_clicks_remaining.saturating_sub(clicks_this_cycle);
             if sequence_clicks_remaining == 0 {
                 sequence_index = (sequence_index + 1) % config.sequence_points.len();
@@ -536,9 +535,6 @@ mod tests {
             button: 1,
             double_click_enabled: false,
             double_click_delay_ms: 40,
-            position_enabled: false,
-            pos_x: 0,
-            pos_y: 0,
             sequence_enabled: false,
             sequence_points: Vec::new(),
             offset: 0.0,

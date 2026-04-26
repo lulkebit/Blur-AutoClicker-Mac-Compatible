@@ -49,9 +49,6 @@ export interface PresetSnapshot {
   edgeStopBottom: number;
   edgeStopLeft: number;
   edgeStopRight: number;
-  positionEnabled: boolean;
-  positionX: number;
-  positionY: number;
 }
 
 export interface PresetDefinition {
@@ -151,9 +148,6 @@ export const PRESET_SNAPSHOT_KEYS = [
   "edgeStopBottom",
   "edgeStopLeft",
   "edgeStopRight",
-  "positionEnabled",
-  "positionX",
-  "positionY",
 ] as const satisfies ReadonlyArray<keyof PresetSnapshot>;
 
 export function clampNumber(
@@ -231,9 +225,6 @@ export function createDefaultSettings(version: string): Settings {
     edgeStopBottom: 40,
     edgeStopLeft: 40,
     edgeStopRight: 40,
-    positionEnabled: false,
-    positionX: 0,
-    positionY: 0,
     rateInputMode: "rate",
     durationHours: 0,
     durationMinutes: 0,
@@ -288,9 +279,6 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
     edgeStopBottom: settings.edgeStopBottom,
     edgeStopLeft: settings.edgeStopLeft,
     edgeStopRight: settings.edgeStopRight,
-    positionEnabled: settings.positionEnabled,
-    positionX: settings.positionX,
-    positionY: settings.positionY,
   };
 }
 
@@ -455,20 +443,6 @@ function sanitizePresetSnapshot(
       defaults.edgeStopRight,
       SETTINGS_LIMITS.stopBoundary.min,
       SETTINGS_LIMITS.stopBoundary.max,
-    ),
-    positionEnabled: sanitizeBoolean(
-      saved.positionEnabled,
-      defaults.positionEnabled,
-    ),
-    positionX: clampNumber(
-      saved.positionX,
-      defaults.positionX,
-      SETTINGS_LIMITS.position.min,
-    ),
-    positionY: clampNumber(
-      saved.positionY,
-      defaults.positionY,
-      SETTINGS_LIMITS.position.min,
     ),
   };
 }
@@ -686,17 +660,6 @@ export function sanitizeSettings(
       defaults.edgeStopRight,
       SETTINGS_LIMITS.stopBoundary.min,
       SETTINGS_LIMITS.stopBoundary.max,
-    ),
-    positionEnabled: sequenceEnabled ? false : sanitizeBoolean(saved.positionEnabled, defaults.positionEnabled),
-    positionX: clampNumber(
-      saved.positionX,
-      defaults.positionX,
-      SETTINGS_LIMITS.position.min,
-    ),
-    positionY: clampNumber(
-      saved.positionY,
-      defaults.positionY,
-      SETTINGS_LIMITS.position.min,
     ),
     rateInputMode: sanitizeRateInputMode(saved.rateInputMode),
     durationHours: clampNumber(saved.durationHours, defaults.durationHours, SETTINGS_LIMITS.durationHours.min, SETTINGS_LIMITS.durationHours.max),
